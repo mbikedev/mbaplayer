@@ -1,0 +1,112 @@
+@import 'tailwindcss';
+
+/*
+ * MBA Player runs dark only. A media player is watched in the dark and the
+ * chrome should stay out of the way of the picture, so there is one palette
+ * rather than a light/dark pair.
+ */
+@theme {
+  --color-ink-950: #07070b;
+  --color-ink-900: #0d0d14;
+  --color-ink-850: #13131c;
+  --color-ink-800: #1a1a25;
+  --color-ink-700: #262633;
+  --color-ink-600: #343445;
+  --color-ink-400: #6d6d84;
+  --color-ink-300: #9a9aae;
+  --color-ink-100: #e6e6ee;
+  --color-ink-50: #f6f6fa;
+
+  --color-gold-500: #efa42a;
+  --color-gold-400: #f7b950;
+  --color-gold-300: #ffd08a;
+
+  --color-danger-500: #e5484d;
+  --color-success-500: #3dd68c;
+
+  --font-sans: var(--font-app-sans), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --radius-card: 0.875rem;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-ink-950);
+  color: var(--color-ink-100);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* Focus ring: keyboard and remote-control navigation must stay obvious. */
+:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+/* Thin scrollbars so the category rails do not eat horizontal space. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-600) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-ink-600);
+  border-radius: 999px;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Placeholder shimmer for poster grids while a catalogue loads. */
+@keyframes mba-shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+@utility skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-ink-850) 0%,
+    var(--color-ink-800) 50%,
+    var(--color-ink-850) 100%
+  );
+  background-size: 800px 100%;
+  animation: mba-shimmer 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
