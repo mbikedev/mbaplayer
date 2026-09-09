@@ -28,3 +28,13 @@ Points à connaître avant de modifier le code :
   L'état issu de `localStorage` passe par `src/lib/local-store.ts`
   (`useSyncExternalStore`), et les fenêtres de pagination se réinitialisent via
   une `key` de remontage, pas via un effet.
+- **Pas de `Date.now()` pendant le rendu.** Le même plugin le refuse comme
+  impur. Utilisez `useNow()` (`src/hooks/use-now.ts`), qui renvoie `0` côté
+  serveur et pendant l'hydratation — les écrans qui dépendent de l'heure
+  attendent cette première valeur.
+- **Libellés du guide TV.** Dans `src/components/epg-grid.tsx`, le libellé d'un
+  programme est en `position: sticky` pour rester lisible quand le bloc commence
+  avant la zone visible. Il lui faut `w-max` : un élément collant aussi large que
+  son bloc conteneur n'a aucune marge pour glisser et ne bouge jamais. Et le bloc
+  ne doit pas avoir `overflow-hidden`, qui en ferait un conteneur de défilement
+  et annulerait la fixation.

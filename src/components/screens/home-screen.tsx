@@ -8,7 +8,7 @@ import { useFavorites, useResumeList, type FavoriteItem, type ResumeItem } from 
 import { getAccount } from '@/lib/xtream'
 import { PosterCard, PosterGrid } from '../poster-card'
 import { Badge, EmptyState, LinkButton, PageHeader, cx } from '../ui'
-import { FilmIcon, LiveIcon, PlayIcon, SeriesIcon, StarIcon } from '../icons'
+import { FilmIcon, GuideIcon, LiveIcon, PlayIcon, SeriesIcon, StarIcon } from '../icons'
 
 export function HomeScreen() {
   const { credentials, profile } = useSession()
@@ -28,8 +28,9 @@ export function HomeScreen() {
         subtitle="Reprenez où vous vous êtes arrêté, ou explorez le catalogue."
       />
 
-      <section className="grid gap-3 sm:grid-cols-3">
-        <SectionLink href="/direct" label="TV en direct" description="Chaînes et guide EPG" Icon={LiveIcon} />
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SectionLink href="/direct" label="TV en direct" description="Chaînes et lecteur" Icon={LiveIcon} />
+        <SectionLink href="/guide" label="Guide TV" description="Grille des programmes" Icon={GuideIcon} />
         <SectionLink href="/films" label="Films" description="Votre vidéothèque" Icon={FilmIcon} />
         <SectionLink href="/series" label="Séries" description="Saisons et épisodes" Icon={SeriesIcon} />
       </section>

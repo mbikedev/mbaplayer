@@ -15,6 +15,10 @@ N'utilisez que des services auxquels vous êtes légalement abonné.
   formulaire automatiquement.
 - **TV en direct** — liste des chaînes par catégorie, recherche, lecteur intégré
   et guide EPG « en ce moment / à suivre ».
+- **Guide TV** — grille complète des programmes : axe du temps horizontal,
+  colonne des chaînes figée, repère « maintenant », navigation sur plusieurs
+  jours (deux jours en arrière, quatre en avant), trois niveaux de zoom, et le
+  détail d'un programme au clic.
 - **Films et séries** — catalogue avec catégories, recherche, fiches détaillées,
   navigation par saison et par épisode.
 - **Reprise de lecture** — position mémorisée par film et par épisode, reprise
@@ -100,15 +104,19 @@ profil du navigateur peut les lire — supprimez le profil depuis l'écran
   pour les portails qui n'offrent rien d'autre.
 - **Rattrapage (catch-up).** L'API expose `tv_archive`, mais la lecture du
   rattrapage n'est pas encore implémentée.
-- **EPG complet.** Seul le guide court (« en ce moment / à suivre ») est affiché,
-  pas la grille sur plusieurs jours.
+- **Portée du guide.** L'étendue de la grille dépend du portail : la plupart
+  fournissent deux à sept jours. Une chaîne sans EPG affiche une ligne vide.
+- **Horaires sans fuseau.** Si un portail ne renvoie pas `start_timestamp` mais
+  seulement des chaînes de caractères (`2026-09-09 20:00:00`), celles-ci sont
+  lues comme de l'UTC — faute d'indication de fuseau — et les programmes
+  peuvent apparaître décalés.
 
 ## Structure
 
 ```
 src/
 ├── app/
-│   ├── (app)/              Écrans protégés (accueil, direct, films, séries, favoris, compte)
+│   ├── (app)/              Écrans protégés (accueil, direct, guide, films, séries, favoris, compte)
 │   ├── api/
 │   │   ├── stream/         Proxy média + réécriture des playlists HLS
 │   │   └── xtream/         Proxy player_api.php
@@ -117,8 +125,10 @@ src/
 │   └── page.tsx            Écran de connexion
 ├── components/             Interface, dont le lecteur vidéo
 ├── context/session.tsx     Profil actif et réglages
-├── hooks/                  useAsync, useHls, useNow
+├── components/epg-grid.tsx Grille du guide TV
+├── hooks/                  useAsync, useHls, useNow, useEpgBatch
 └── lib/
+    ├── epg-layout.ts       Géométrie de la grille du guide
     ├── portal.ts           Analyse d'adresse et construction des URLs de flux
     ├── xtream.ts           Client typé de l'API
     ├── xtream-normalize.ts Normalisation des réponses de portail
@@ -134,5 +144,15 @@ npm test
 
 Les tests couvrent l'analyse des adresses de portail, la normalisation des
 réponses (les portails renvoient le même champ tantôt en nombre tantôt en
-chaîne), la réécriture des playlists HLS, le filtre SSRF et les deux routes de
-proxy. Aucune requête réseau réelle n'est effectuée.
+chaîne), la géométrie de la grille du guide, la réécriture des playlists HLS, le
+filtre SSRF et les deux routes de proxy. Aucune requête réseau réelle n'est
+effectuée.
+
+### Comment le guide charge ses données
+
+Le guide interroge `get_simple_data_table` **chaîne par chaîne**, et seulement
+pour les lignes visibles à l'écran, quatre requêtes à la fois. L'alternative,
+`xmltv.php`, renvoie le guide de toutes les chaînes en un seul fichier —
+couramment plusieurs dizaines de mégaoctets sur un portail de plusieurs milliers
+de chaînes, ce qui n'est pas raisonnable sur mobile. Les résultats sont mis en
+cache pour la durée de l'onglet, donc remonter dans la liste est instantané.

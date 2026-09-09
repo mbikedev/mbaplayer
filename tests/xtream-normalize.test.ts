@@ -164,4 +164,49 @@ describe('normalizeEpg', () => {
     expect(entries[0].start).toBe(1_000_000)
     expect(entries[0].nowPlaying).toBe(true)
   })
+
+  it('falls back to the date strings when timestamps are missing', () => {
+    // No offset is supplied by the portal, so the strings are read as UTC.
+    const [entry] = normalizeEpg([
+      { id: '1', start: '2026-09-09 20:00:00', end: '2026-09-09 21:30:00' },
+    ])
+    expect(entry.start).toBe(Date.UTC(2026, 8, 9, 20, 0, 0))
+    expect(entry.stop).toBe(Date.UTC(2026, 8, 9, 21, 30, 0))
+  })
+
+  it('drops entries with no usable start or end rather than placing them at the epoch', () => {
+    expect(
+      normalizeEpg([
+        { id: '1', title: 'Sans horaire' },
+        { id: '2', start: 'pas une date', end: 'non plus' },
+        { id: '3', start_timestamp: 1000 },
+      ]),
+    ).toEqual([])
+  })
+
+  it('drops a programme that ends before it starts', () => {
+    // A negative duration would render as a negative-width block in the grid.
+    expect(
+      normalizeEpg([{ id: '1', start_timestamp: 3000, stop_timestamp: 2000 }]),
+    ).toEqual([])
+  })
+
+  it('drops a zero-length programme', () => {
+    expect(
+      normalizeEpg([{ id: '1', start_timestamp: 2000, stop_timestamp: 2000 }]),
+    ).toEqual([])
+  })
+
+  it('prefers the epoch timestamp over the date string when both are present', () => {
+    const [entry] = normalizeEpg([
+      {
+        id: '1',
+        start_timestamp: 1_757_440_800,
+        stop_timestamp: 1_757_444_400,
+        start: '1999-01-01 00:00:00',
+        end: '1999-01-01 01:00:00',
+      },
+    ])
+    expect(entry.start).toBe(1_757_440_800_000)
+  })
 })

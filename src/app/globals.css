@@ -110,3 +110,19 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * Frozen channel column of the EPG grid. It lives in CSS rather than in the
+ * component because the width is needed in three places — the column, the
+ * sticky programme labels and the now-marker — and it has to change at the
+ * `sm` breakpoint, where 11rem would leave almost no room for the guide.
+ */
+.epg-grid {
+  --epg-col: 8rem;
+}
+
+@media (min-width: 640px) {
+  .epg-grid {
+    --epg-col: 11rem;
+  }
+}

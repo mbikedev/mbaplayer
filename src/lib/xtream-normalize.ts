@@ -83,6 +83,35 @@ function secondsToMs(value: Numeric | null | undefined): number | null {
   return n === null ? null : n * 1000
 }
 
+/**
+ * Resolves an EPG boundary to milliseconds.
+ *
+ * `start_timestamp` / `stop_timestamp` are epoch seconds and are what nearly
+ * every portal sends. The `start` / `end` strings are the fallback, and they
+ * carry no offset — "2026-09-09 20:00:00" is in the *portal's* timezone, which
+ * is not necessarily the viewer's. They are read as UTC, which is the only
+ * defensible reading without an offset, so a portal that sends only strings can
+ * place programmes on a shifted clock. Returns null when neither is usable, so
+ * the entry is dropped rather than landing at the epoch.
+ */
+function epgBoundary(
+  timestamp: Numeric | null | undefined,
+  text: string | undefined,
+): number | null {
+  const fromTimestamp = secondsToMs(timestamp)
+  if (fromTimestamp !== null) return fromTimestamp
+
+  const raw = str(text)
+  if (!raw) return null
+
+  // "YYYY-MM-DD HH:MM:SS" is not an ISO string until the space becomes a T.
+  const iso = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(raw)
+    ? `${raw.replace(' ', 'T')}Z`
+    : raw
+  const parsed = Date.parse(iso)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 export function normalizeAccount(raw: RawAuthResponse): AccountInfo {
   const user = raw.user_info ?? {}
   const server = raw.server_info ?? {}
@@ -287,14 +316,21 @@ export function normalizeSeriesDetail(raw: RawSeriesInfo, fallbackId: string): S
 export function normalizeEpg(raw: RawEpgListing[] | null | undefined): EpgEntry[] {
   if (!Array.isArray(raw)) return []
   return raw
-    .map((e, index) => ({
-      id: str(e.id, String(index)),
-      title: decodeEpgText(e.title),
-      description: decodeEpgText(e.description),
-      start: secondsToMs(e.start_timestamp) ?? Date.parse(str(e.start)) ?? 0,
-      stop: secondsToMs(e.stop_timestamp) ?? Date.parse(str(e.end)) ?? 0,
-      nowPlaying: bool(e.now_playing),
-    }))
-    .filter((e) => Number.isFinite(e.start) && Number.isFinite(e.stop))
+    .map((e, index) => {
+      const start = epgBoundary(e.start_timestamp, e.start)
+      const stop = epgBoundary(e.stop_timestamp, e.end)
+      if (start === null || stop === null) return null
+      return {
+        id: str(e.id, String(index)),
+        title: decodeEpgText(e.title),
+        description: decodeEpgText(e.description),
+        start,
+        stop,
+        nowPlaying: bool(e.now_playing),
+      }
+    })
+    // A programme that ends before it starts is corrupt, not just odd: it would
+    // render as a negative-width block in the guide.
+    .filter((e): e is EpgEntry => e !== null && e.stop > e.start)
     .sort((a, b) => a.start - b.start)
 }

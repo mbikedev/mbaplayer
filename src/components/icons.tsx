@@ -69,6 +69,13 @@ export const SeriesIcon = (props: IconProps) => (
   </Icon>
 )
 
+export const GuideIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <rect x="2.5" y="4.5" width="19" height="15" rx="2.5" />
+    <path d="M8.5 4.5v15M2.5 9.5h19M2.5 14.5h19" />
+  </Icon>
+)
+
 export const StarIcon = (props: IconProps) => (
   <Icon {...props}>
     <path d="m12 3.6 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.8l5.9-.9L12 3.6Z" />

@@ -7,6 +7,7 @@ import { useSession } from '@/context/session'
 import { Spinner, cx } from './ui'
 import {
   FilmIcon,
+  GuideIcon,
   HomeIcon,
   LiveIcon,
   LogoIcon,
@@ -25,12 +26,13 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/accueil', label: 'Accueil', Icon: HomeIcon },
   { href: '/direct', label: 'Direct', Icon: LiveIcon },
+  { href: '/guide', label: 'Guide', Icon: GuideIcon },
   { href: '/films', label: 'Films', Icon: FilmIcon },
   { href: '/series', label: 'Séries', Icon: SeriesIcon },
   { href: '/favoris', label: 'Favoris', Icon: StarIcon },
 ]
 
-/** Bottom bar on phones is limited to five slots; search lives in the header. */
+// Search lives in the header on phones, which leaves the bottom bar for these.
 const MOBILE_NAV_ITEMS = NAV_ITEMS
 
 export function AppShell({ children }: { children: ReactNode }) {

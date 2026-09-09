@@ -11,13 +11,13 @@ import type { LiveChannel } from '@/lib/xtream-types'
 import { FavoriteButton } from '../favorite-button'
 import { LoadMoreSentinel, useInfiniteWindow } from '../infinite-list'
 import { VideoPlayer } from '../video-player'
-import { Badge, Button, EmptyState, ErrorMessage, PageHeader, cx } from '../ui'
-import { RefreshIcon, SearchIcon } from '../icons'
+import { Badge, Button, EmptyState, ErrorMessage, LinkButton, PageHeader, cx } from '../ui'
+import { GuideIcon, RefreshIcon, SearchIcon } from '../icons'
 
 /** Channel lists routinely exceed 10 000 entries, so the list renders in slices. */
 const LIST_PAGE_SIZE = 80
 
-export function LiveScreen() {
+export function LiveScreen({ initialChannelId }: { initialChannelId: string | null }) {
   const { credentials, settings } = useSession()
   const [activeCategory, setActiveCategory] = useState('all')
   const [query, setQuery] = useState('')
@@ -53,9 +53,14 @@ export function LiveScreen() {
     })
   }, [channels.data, query, activeCategory, hiddenCategoryIds])
 
-  // Falling back to the first match keeps the player from ever being empty,
-  // and is derived rather than assigned in an effect.
-  const selected = picked ?? filtered[0] ?? null
+  // Falling back to the deep-linked channel and then the first match keeps the
+  // player from ever being empty, and is derived rather than set in an effect.
+  // An explicit pick always wins, so arriving from the guide does not pin the
+  // selection once the viewer starts browsing.
+  const linked = initialChannelId
+    ? (filtered.find((channel) => channel.id === initialChannelId) ?? null)
+    : null
+  const selected = picked ?? linked ?? filtered[0] ?? null
 
   const src = useMemo(() => {
     if (!credentials || !selected) return null
@@ -72,17 +77,23 @@ export function LiveScreen() {
             : undefined
         }
         actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              categories.reload()
-              channels.reload()
-            }}
-          >
-            <RefreshIcon className="size-4" />
-            Actualiser
-          </Button>
+          <>
+            <LinkButton variant="secondary" size="sm" href="/guide">
+              <GuideIcon className="size-4" />
+              Guide TV
+            </LinkButton>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                categories.reload()
+                channels.reload()
+              }}
+            >
+              <RefreshIcon className="size-4" />
+              Actualiser
+            </Button>
+          </>
         }
       />
 

@@ -210,6 +210,33 @@ export async function getShortEpg(
   }
 }
 
+/**
+ * The complete EPG for one channel, typically a few days either side of now.
+ *
+ * The alternative is `xmltv.php`, which returns the guide for every channel in
+ * a single file — routinely tens of megabytes on a portal with thousands of
+ * channels, which is not something to hand a phone. The guide screen calls this
+ * per channel instead, only for the rows on screen.
+ */
+export async function getChannelEpg(
+  credentials: Credentials,
+  streamId: string,
+): Promise<EpgEntry[]> {
+  try {
+    const raw = await call<RawEpgResponse>(
+      credentials,
+      'get_simple_data_table',
+      { stream_id: streamId },
+      { cacheable: true },
+    )
+    return normalizeEpg(raw.epg_listings)
+  } catch {
+    // A channel with no guide is the normal case on many portals, not an error
+    // worth interrupting the grid for.
+    return []
+  }
+}
+
 /** Builds the proxied URL the player should load for a given stream. */
 export function streamUrl(
   credentials: Credentials,
