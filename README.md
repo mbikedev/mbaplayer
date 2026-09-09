@@ -42,6 +42,18 @@ npm run dev
 
 Puis ouvrez http://localhost:3000 et saisissez les informations de votre portail.
 
+### Tester depuis un téléphone
+
+MBA Player est une PWA : l'installer et lire une vidéo sur mobile fait partie du
+test. Depuis un autre appareil du réseau local, ouvrez `http://<ip-de-votre-machine>:3000`.
+
+En développement, Next.js ne sert ses fichiers qu'à `localhost` par défaut ; les
+autres origines reçoivent un 403 sur chaque script, la page ne s'hydrate jamais
+et les formulaires se soumettent en GET sans message d'erreur. `next.config.ts`
+autorise donc déjà `127.0.0.1` et les plages privées courantes
+(`192.168.*.*`, `10.*.*.*`) via `allowedDevOrigins` — ajoutez-y votre adresse si
+elle sort de ces plages. Cette option ne concerne que `next dev`.
+
 ## Scripts
 
 | Commande            | Effet                                        |
