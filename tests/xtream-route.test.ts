@@ -124,7 +124,21 @@ describe('POST /api/xtream', () => {
 
     expect(response.status).toBe(502)
     expect(body.error).toContain('/player_api.php')
-    expect(body.error).toContain('Xtream Codes')
+  })
+
+  it('does not pin a 404 on a single cause', async () => {
+    // A portal serving the API perfectly well can still answer 404 — several
+    // panels use it for bad credentials instead of returning auth:0. Asserting
+    // "this address has no API" sent a real user looking in the wrong place.
+    stubFetch(new Response('', { status: 404, statusText: 'Not Found' }))
+
+    const response = await POST(
+      request({ host: HOST, username: 'example-user', password: 'not-a-real-password' }),
+    )
+    const body = (await response.json()) as { error: string }
+
+    expect(body.error).toMatch(/identifiant/i)
+    expect(body.error).toMatch(/port/i)
   })
 
   it('never leaks the password into an error the interface displays', async () => {
