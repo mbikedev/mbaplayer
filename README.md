@@ -109,6 +109,23 @@ acceptent le plus systématiquement. Si le vôtre en attend une autre, changez-l
 MBAPLAYER_USER_AGENT="IBOPlayer/1.0" npm run dev
 ```
 
+### Variables d'environnement sous Windows
+
+La syntaxe `VAR=valeur commande` est propre au shell Unix et ne fonctionne pas
+sous Windows. En PowerShell :
+
+```powershell
+$env:MBAPLAYER_USER_AGENT = "IBOPlayer/1.0"
+$env:MBAPLAYER_ALLOW_PRIVATE_HOSTS = "1"
+npm run dev
+```
+
+La variable reste définie pour la durée du terminal. Pour l'effacer :
+`Remove-Item Env:MBAPLAYER_USER_AGENT`.
+
+En invite de commandes classique (`cmd.exe`) : `set MBAPLAYER_USER_AGENT=IBOPlayer/1.0`
+puis `npm run dev`.
+
 ## Comment ça marche
 
 ### Le proxy, et pourquoi il est obligatoire
