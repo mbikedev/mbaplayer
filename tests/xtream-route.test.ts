@@ -51,6 +51,19 @@ describe('POST /api/xtream', () => {
     expect(called.searchParams.get('category_id')).toBe('7')
   })
 
+  it('identifies as a known player, which some panels require', async () => {
+    // Panels filter on User-Agent and answer an unrecognised client with 404 —
+    // indistinguishable from a missing path. VLC is the signature they accept
+    // most consistently, so a generic agent here would break real portals.
+    const spy = stubFetch(new Response(JSON.stringify({ user_info: { auth: 1 } })))
+
+    await POST(request({ host: HOST, username: 'example-user', password: 'not-a-real-password' }))
+
+    const agent = String(spy.mock.calls[0][1].headers['User-Agent'])
+    expect(agent).toMatch(/VLC/i)
+    expect(agent).not.toMatch(/node|undici|MBAPlayer/i)
+  })
+
   it('omits the action for the bare authentication call', async () => {
     const spy = stubFetch(new Response(JSON.stringify({ user_info: { auth: 1 } })))
 

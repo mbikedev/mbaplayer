@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { UnsafeUrlError, assertFetchableUrl } from '@/lib/server/safe-fetch'
+import { PORTAL_USER_AGENT } from '@/lib/server/user-agent'
 
 /**
  * Fetches an M3U playlist for the client.
@@ -10,7 +11,6 @@ import { UnsafeUrlError, assertFetchableUrl } from '@/lib/server/safe-fetch'
  * that URL out of the browser's network log for anything else on the page.
  */
 
-const USER_AGENT = 'MBAPlayer/1.0 (M3U client)'
 const REQUEST_TIMEOUT_MS = 60_000
 
 /**
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   let upstream: Response
   try {
     upstream = await fetch(target, {
-      headers: { 'User-Agent': USER_AGENT, Accept: '*/*' },
+      headers: { 'User-Agent': PORTAL_USER_AGENT, Accept: '*/*' },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       cache: 'no-store',
       redirect: 'follow',
