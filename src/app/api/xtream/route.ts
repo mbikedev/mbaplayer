@@ -22,6 +22,20 @@ interface XtreamRequestBody {
   params?: unknown;
 }
 
+/**
+ * Statuses 520-527 are Cloudflare's, not HTTP's, and they are emitted by the
+ * edge in front of an origin rather than by the origin itself. 520 in
+ * particular means the edge reached the server but got nothing it could use.
+ *
+ * This matters for a self-hosted player: IPTV panels sit behind such edges and
+ * commonly refuse datacenter address ranges, so a portal that answers a home
+ * connection perfectly can reject the very same request from a cloud host. The
+ * bare number sends people auditing their credentials for that.
+ */
+function isEdgeRejection(status: number): boolean {
+  return status >= 520 && status <= 527
+}
+
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
 }
@@ -120,8 +134,9 @@ export async function POST(request: Request) {
     // rather than returning auth:0 — so naming a single cause here has been
     // observed to send people looking in the wrong place. List the candidates
     // and let the address, which is now printed, settle it.
-    const detail =
-      upstream.status === 404
+    const detail = isEdgeRejection(upstream.status)
+      ? `Le portail a répondu ${upstream.status} pour ${redactedTarget(target)}. Ce code vient d’une protection placée devant le portail (type Cloudflare), pas du portail lui-même : elle a refusé la requête ou n’a pas obtenu de réponse. Le cas le plus courant est un blocage des adresses IP de centres de données. Si l’application est hébergée dans le cloud, essayez-la depuis votre machine — le même portail répond souvent parfaitement depuis une connexion domestique.`
+      : upstream.status === 404
         ? `Le portail a répondu 404 pour ${redactedTarget(target)}. Trois causes possibles : identifiant ou mot de passe incorrect (certains portails répondent 404 au lieu de le dire), port erroné, ou adresse qui n’expose pas l’API Xtream Codes. Vérifiez d’abord les identifiants caractère par caractère.`
         : `Le portail a répondu ${upstream.status} ${upstream.statusText} pour ${redactedTarget(target)}.`;
 

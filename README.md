@@ -94,6 +94,24 @@ elle sort de ces plages. Cette option ne concerne que `next dev`.
 | `MBAPLAYER_ALLOW_PRIVATE_HOSTS` | absent | À `1`, autorise les portails sur adresse privée ou locale (`192.168.…`, `localhost`). Voir la section suivante. |
 | `MBAPLAYER_USER_AGENT`          | `VLC/3.0.20 LibVLC/3.0.20` | Signature envoyée au portail. Voir ci-dessous. |
 
+### Pourquoi héberger cette application dans le cloud ne fonctionne pas
+
+C'est tentant — une URL, rien à installer — mais deux obstacles s'y opposent, et
+aucun ne se contourne par de la configuration :
+
+1. **Les portails bloquent les adresses de centres de données.** Un portail qui
+   répond parfaitement depuis votre connexion domestique renvoie souvent un code
+   `520`-`527` depuis un hébergeur cloud : la protection placée devant lui (type
+   Cloudflare) refuse les plages d'IP serveur. C'est une posture anti-revente
+   courante chez les fournisseurs IPTV.
+2. **La vidéo transite par le proxy.** Sur un hébergement serverless, chaque
+   route devient une fonction dont la durée d'exécution est plafonnée à quelques
+   dizaines de secondes. Un film s'arrête en cours de route.
+
+MBA Player est conçu pour tourner **sur votre machine**, sur votre connexion.
+C'est là que le proxy a l'adresse IP que votre abonnement attend, et qu'aucune
+limite de durée ne s'applique.
+
 ### Si le portail répond 404 alors qu'il fonctionne ailleurs
 
 Beaucoup de panneaux Xtream filtrent sur le User-Agent et répondent **404 aux
