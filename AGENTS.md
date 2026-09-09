@@ -32,6 +32,12 @@ Points à connaître avant de modifier le code :
   impur. Utilisez `useNow()` (`src/hooks/use-now.ts`), qui renvoie `0` côté
   serveur et pendant l'hydratation — les écrans qui dépendent de l'heure
   attendent cette première valeur.
+- **L'heure du rattrapage est celle du portail.** Le paramètre `start` d'une URL
+  timeshift est une heure murale lue sur le portail, pas un instant UTC ni
+  l'heure du spectateur. Passez toujours par `formatTimeshiftStart`
+  (`src/lib/catchup.ts`), qui privilégie le fuseau IANA du portail — un décalage
+  fixe mesuré aujourd'hui est faux pour un enregistrement situé de l'autre côté
+  d'un changement d'heure.
 - **Libellés du guide TV.** Dans `src/components/epg-grid.tsx`, le libellé d'un
   programme est en `position: sticky` pour rester lisible quand le bloc commence
   avant la zone visible. Il lui faut `w-max` : un élément collant aussi large que

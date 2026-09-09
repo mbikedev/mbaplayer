@@ -1,3 +1,4 @@
+import { catchupUrlCandidates, portalClockFrom, type PortalClock } from './catchup'
 import { buildStreamUrl, type StreamKind } from './portal'
 import {
   isAuthenticated,
@@ -123,6 +124,16 @@ export async function getAccount(credentials: Credentials): Promise<AccountInfo>
   return normalizeAccount(await call<RawAuthResponse>(credentials, ''))
 }
 
+/**
+ * The portal's clock, needed to ask for a catch-up recording by wall-clock
+ * time. Cached, unlike `getAccount`: the account screen wants a live connection
+ * count, but the timezone does not move.
+ */
+export async function getPortalClock(credentials: Credentials): Promise<PortalClock> {
+  const raw = await call<RawAuthResponse>(credentials, '', {}, { cacheable: true })
+  return portalClockFrom(normalizeAccount(raw))
+}
+
 export async function getLiveCategories(credentials: Credentials): Promise<Category[]> {
   return normalizeCategories(
     await call<RawCategory[]>(credentials, 'get_live_categories', {}, { cacheable: true }),
@@ -246,6 +257,28 @@ export function streamUrl(
 ): string {
   const direct = buildStreamUrl({ ...credentials, kind, streamId, extension })
   return `/api/stream?u=${base64Url(direct)}`
+}
+
+/**
+ * Proxied URLs for a catch-up recording, most likely first.
+ *
+ * More than one because panels disagree on the URL shape and the portal is the
+ * only thing that knows which it serves; the player walks the list.
+ */
+export function catchupStreamUrls(
+  credentials: Credentials,
+  clock: PortalClock,
+  streamId: string,
+  start: number,
+  durationMinutes: number,
+): string[] {
+  return catchupUrlCandidates({
+    ...credentials,
+    streamId,
+    start,
+    durationMinutes,
+    clock,
+  }).map((url) => `/api/stream?u=${base64Url(url)}`)
 }
 
 function base64Url(value: string): string {

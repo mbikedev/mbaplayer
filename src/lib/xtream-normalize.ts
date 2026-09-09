@@ -129,6 +129,7 @@ export function normalizeAccount(raw: RawAuthResponse): AccountInfo {
       : [],
     serverTimezone: str(server.timezone) || null,
     serverTimeNow: str(server.time_now) || null,
+    serverTimestampNow: secondsToMs(server.timestamp_now),
   }
 }
 
@@ -158,6 +159,7 @@ export function normalizeLiveChannels(raw: RawLiveStream[] | null | undefined): 
       categoryId: str(s.category_id),
       epgChannelId: str(s.epg_channel_id) || null,
       hasArchive: bool(s.tv_archive),
+      archiveDays: num(s.tv_archive_duration),
     }))
     .filter((c) => c.id !== '')
 }
@@ -327,6 +329,7 @@ export function normalizeEpg(raw: RawEpgListing[] | null | undefined): EpgEntry[
         start,
         stop,
         nowPlaying: bool(e.now_playing),
+        hasArchive: bool(e.has_archive),
       }
     })
     // A programme that ends before it starts is corrupt, not just odd: it would

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSession } from '@/context/session'
 import { useEpgBatch } from '@/hooks/use-epg-batch'
+import { isReplayable } from '@/lib/catchup'
 import { formatTime } from '@/lib/format'
 import {
   nowOffset,
@@ -13,6 +14,7 @@ import {
   type TimeWindow,
 } from '@/lib/epg-layout'
 import type { EpgEntry, LiveChannel } from '@/lib/xtream-types'
+import { ReplayIcon } from './icons'
 import { Spinner, cx } from './ui'
 
 export interface EpgSelection {
@@ -280,6 +282,7 @@ function ChannelRow({
         {placed.map(({ entry, rect }) => {
           const isNow = entry.start <= now && entry.stop > now
           const isSelected = entry.id === selectedEntryId
+          const canReplay = isReplayable({ entry, channel, now })
           return (
             <button
               key={`${entry.id}-${entry.start}`}
@@ -323,10 +326,18 @@ function ChannelRow({
                 >
                   {entry.title || 'Sans titre'}
                 </span>
-                <span className="block truncate text-[11px] text-ink-400">
-                  {rect.clippedStart ? '… ' : ''}
-                  {formatTime(entry.start)}
-                  {rect.clippedEnd ? ' …' : ''}
+                <span className="flex items-center gap-1 truncate text-[11px] text-ink-400">
+                  {canReplay ? (
+                    <ReplayIcon
+                      className="size-3 shrink-0 text-gold-500/80"
+                      aria-label="Disponible en rattrapage"
+                    />
+                  ) : null}
+                  <span className="truncate">
+                    {rect.clippedStart ? '… ' : ''}
+                    {formatTime(entry.start)}
+                    {rect.clippedEnd ? ' …' : ''}
+                  </span>
                 </span>
               </span>
             </button>

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { useSession } from '@/context/session'
 import { useAsync } from '@/hooks/use-async'
@@ -119,7 +120,16 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-lg font-semibold text-ink-50">{selected.name}</h2>
                   {selected.hasArchive ? (
-                    <p className="mt-1 text-xs text-ink-400">Rattrapage disponible sur ce portail</p>
+                    <p className="mt-1 text-xs text-ink-400">
+                      Rattrapage disponible
+                      {selected.archiveDays > 0
+                        ? ` sur ${selected.archiveDays} jour${selected.archiveDays > 1 ? 's' : ''}`
+                        : ''}
+                      {' — '}
+                      <Link href="/guide" className="text-gold-400 hover:text-gold-300">
+                        revoir un programme dans le guide
+                      </Link>
+                    </p>
                   ) : null}
                 </div>
                 <FavoriteButton

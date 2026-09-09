@@ -29,6 +29,12 @@ export interface VideoPlayerProps {
   isHls: boolean
   /** Seconds to resume from, applied once when playback becomes seekable. */
   startPosition?: number
+  /**
+   * Called when the source is judged dead after the bounded retries. Lets the
+   * caller swap in another URL for the same content before the viewer is shown
+   * a final error.
+   */
+  onUnplayable?: (message: string) => void
   onProgress?: (position: number, duration: number) => void
   onEnded?: () => void
   onBack?: () => void
@@ -46,6 +52,7 @@ export function VideoPlayer({
   live = false,
   isHls,
   startPosition = 0,
+  onUnplayable,
   onProgress,
   onEnded,
   onBack,
@@ -66,7 +73,39 @@ export function VideoPlayer({
   const [idleHidden, setIdleHidden] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const hls = useHls(videoRef, src, isHls)
+  /**
+   * Errors raised by the <video> element itself, which hls.js never sees.
+   * Progressive sources — a film, or a catch-up URL served as MPEG-TS — fail
+   * here, and without this the player sat on its spinner for ever.
+   */
+  const [elementError, setElementError] = useState<string | null>(null)
+
+  // The caller swaps in another URL when told the source is dead, so telling it
+  // twice for the same source would skip a candidate.
+  const reportedUnplayable = useRef(false)
+
+  const hls = useHls(videoRef, src, isHls, { onUnplayable })
+
+  const fatalError = hls.fatalError ?? elementError
+
+  const reportUnplayable = useCallback(
+    (message: string) => {
+      setElementError(message)
+      setWaiting(false)
+      if (reportedUnplayable.current) return
+      reportedUnplayable.current = true
+      onUnplayable?.(message)
+    },
+    [onUnplayable],
+  )
+
+  const retry = useCallback(() => {
+    setElementError(null)
+    reportedUnplayable.current = false
+    setWaiting(true)
+    hls.retry()
+    videoRef.current?.load()
+  }, [hls])
 
   // The chrome only ever hides during uninterrupted playback: a paused video or
   // an open menu keeps it on screen, so this is derived instead of tracked.
@@ -216,7 +255,7 @@ export function VideoPlayer({
   }
 
   const hasSeekBar = !live && duration > 0
-  const showBigPlay = !playing && !waiting && !hls.fatalError
+  const showBigPlay = !playing && !waiting && !fatalError
 
   return (
     <div
@@ -252,21 +291,22 @@ export function VideoPlayer({
           setPlaying(false)
           onEnded?.()
         }}
+        onError={() => reportUnplayable(describeMediaError(videoRef.current?.error))}
       />
 
       {/* Loading and error overlays */}
-      {waiting && !hls.fatalError ? (
+      {waiting && !fatalError ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <Spinner className="size-12 text-gold-500" />
         </div>
       ) : null}
 
-      {hls.fatalError ? (
+      {fatalError ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-ink-950/90 px-6 text-center">
           <AlertIcon className="size-10 text-danger-500" />
-          <p className="max-w-md text-sm text-ink-100">{hls.fatalError}</p>
+          <p className="max-w-md text-sm text-ink-100">{fatalError}</p>
           <div className="flex gap-2">
-            <Button size="sm" variant="secondary" onClick={hls.retry}>
+            <Button size="sm" variant="secondary" onClick={retry}>
               <RefreshIcon className="size-4" />
               Réessayer
             </Button>
@@ -455,6 +495,20 @@ export function VideoPlayer({
       </div>
     </div>
   )
+}
+
+/** Turns the element's MediaError code into something worth reading. */
+function describeMediaError(error: MediaError | null | undefined): string {
+  switch (error?.code) {
+    case MediaError.MEDIA_ERR_NETWORK:
+      return 'Flux injoignable : le portail a interrompu le transfert.'
+    case MediaError.MEDIA_ERR_DECODE:
+      return 'Flux illisible : le navigateur n’a pas pu décoder cette vidéo.'
+    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+      return 'Format non supporté par le navigateur — le portail renvoie peut-être du MPEG-TS.'
+    default:
+      return 'Lecture impossible : le flux est indisponible.'
+  }
 }
 
 function ControlButton({

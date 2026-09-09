@@ -19,6 +19,9 @@ N'utilisez que des services auxquels vous êtes légalement abonné.
   colonne des chaînes figée, repère « maintenant », navigation sur plusieurs
   jours (deux jours en arrière, quatre en avant), trois niveaux de zoom, et le
   détail d'un programme au clic.
+- **Rattrapage** — revoir un programme passé sur les chaînes que le portail
+  enregistre. Les programmes rejouables sont marqués dans la grille, et le
+  bouton « Revoir » lance l'enregistrement.
 - **Films et séries** — catalogue avec catégories, recherche, fiches détaillées,
   navigation par saison et par épisode.
 - **Reprise de lecture** — position mémorisée par film et par épisode, reprise
@@ -73,6 +76,20 @@ passent donc par le serveur Next.js :
   volée pour que les segments repassent aussi par le proxy, et l'en-tête `Range`
   est transmis pour que l'avance rapide fonctionne sur les films.
 
+### L'heure du portail, et pourquoi elle compte
+
+Le rattrapage se demande par heure de début — mais cette heure est lue sur
+**l'horloge du portail**, pas sur celle du spectateur. Un abonné à Dakar
+demandant « 20:00 » à un portail parisien récupérerait sinon les deux mauvaises
+heures.
+
+`src/lib/catchup.ts` privilégie le fuseau IANA annoncé par le portail
+(`server_info.timezone`), car c'est le seul moyen d'être juste de part et
+d'autre d'un changement d'heure — ce qui arrive largement dans les quelques
+jours d'archive conservés. À défaut, il calcule le décalage à partir de
+`time_now` et `timestamp_now`, que le portail renvoie pour le même instant. En
+dernier recours, il utilise l'horloge du spectateur.
+
 ### Sécurité : le filtre SSRF
 
 Ces deux routes vont chercher une URL fournie par le client. Sans garde-fou,
@@ -102,8 +119,12 @@ profil du navigateur peut les lire — supprimez le profil depuis l'écran
 - **Flux TS en direct.** Le format `.ts` brut n'est pas lisible dans un
   navigateur. Le réglage par défaut demande du `.m3u8` ; l'option TS n'est là que
   pour les portails qui n'offrent rien d'autre.
-- **Rattrapage (catch-up).** L'API expose `tv_archive`, mais la lecture du
-  rattrapage n'est pas encore implémentée.
+- **Rattrapage.** Sa disponibilité dépend entièrement du portail : la chaîne
+  doit être enregistrée (`tv_archive`) et le programme doit rester dans la
+  fenêtre conservée (`tv_archive_duration`, souvent 2 à 7 jours). L'application
+  essaie deux formes d'URL, mais certains panneaux répondent en MPEG-TS, que les
+  navigateurs ne décodent pas — dans ce cas la lecture échoue avec un message
+  explicite.
 - **Portée du guide.** L'étendue de la grille dépend du portail : la plupart
   fournissent deux à sept jours. Une chaîne sans EPG affiche une ligne vide.
 - **Horaires sans fuseau.** Si un portail ne renvoie pas `start_timestamp` mais
@@ -121,6 +142,7 @@ src/
 │   │   ├── stream/         Proxy média + réécriture des playlists HLS
 │   │   └── xtream/         Proxy player_api.php
 │   ├── lecture/            Lecteur plein écran (films et épisodes)
+│   ├── rattrapage/         Lecteur de rattrapage (programme passé)
 │   ├── manifest.ts         Manifeste PWA
 │   └── page.tsx            Écran de connexion
 ├── components/             Interface, dont le lecteur vidéo
@@ -128,6 +150,7 @@ src/
 ├── components/epg-grid.tsx Grille du guide TV
 ├── hooks/                  useAsync, useHls, useNow, useEpgBatch
 └── lib/
+    ├── catchup.ts          Horloge du portail et URLs de rattrapage
     ├── epg-layout.ts       Géométrie de la grille du guide
     ├── portal.ts           Analyse d'adresse et construction des URLs de flux
     ├── xtream.ts           Client typé de l'API
@@ -144,9 +167,10 @@ npm test
 
 Les tests couvrent l'analyse des adresses de portail, la normalisation des
 réponses (les portails renvoient le même champ tantôt en nombre tantôt en
-chaîne), la géométrie de la grille du guide, la réécriture des playlists HLS, le
-filtre SSRF et les deux routes de proxy. Aucune requête réseau réelle n'est
-effectuée.
+chaîne), la géométrie de la grille du guide, la conversion vers l'horloge du
+portail (y compris de part et d'autre d'un changement d'heure), la construction
+des URLs de rattrapage, la réécriture des playlists HLS, le filtre SSRF et les
+deux routes de proxy. Aucune requête réseau réelle n'est effectuée.
 
 ### Comment le guide charge ses données
 

@@ -76,6 +76,13 @@ export const GuideIcon = (props: IconProps) => (
   </Icon>
 )
 
+export const ReplayIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M4 12a8 8 0 1 0 2.6-5.9" />
+    <path d="M3.5 4v4.5H8" />
+  </Icon>
+)
+
 export const StarIcon = (props: IconProps) => (
   <Icon {...props}>
     <path d="m12 3.6 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.8l5.9-.9L12 3.6Z" />

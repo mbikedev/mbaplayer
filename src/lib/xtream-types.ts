@@ -195,6 +195,8 @@ export interface LiveChannel {
   categoryId: string
   epgChannelId: string | null
   hasArchive: boolean
+  /** How many days of catch-up the portal keeps, 0 when it keeps none. */
+  archiveDays: number
 }
 
 export interface Movie {
@@ -266,6 +268,8 @@ export interface EpgEntry {
   start: number
   stop: number
   nowPlaying: boolean
+  /** The portal claims a recording exists for this programme. */
+  hasArchive: boolean
 }
 
 export interface AccountInfo {
@@ -280,4 +284,6 @@ export interface AccountInfo {
   allowedFormats: string[]
   serverTimezone: string | null
   serverTimeNow: string | null
+  /** The portal's clock as epoch milliseconds, for deriving its UTC offset. */
+  serverTimestampNow: number | null
 }

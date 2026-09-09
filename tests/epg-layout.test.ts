@@ -122,9 +122,9 @@ describe('nowOffset', () => {
 
 describe('programmeAt', () => {
   const entries = [
-    { id: 'a', title: '', description: '', start: at(20, 0), stop: at(21, 0), nowPlaying: false },
-    { id: 'b', title: '', description: '', start: at(21, 0), stop: at(22, 0), nowPlaying: false },
-  ]
+    { id: 'a', start: at(20, 0), stop: at(21, 0) },
+    { id: 'b', start: at(21, 0), stop: at(22, 0) },
+  ].map((e) => ({ ...e, title: '', description: '', nowPlaying: false, hasArchive: false }))
 
   it('finds the programme covering an instant', () => {
     expect(programmeAt(entries, at(20, 30))?.id).toBe('a')

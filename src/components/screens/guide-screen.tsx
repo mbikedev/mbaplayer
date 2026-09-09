@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { useSession } from '@/context/session'
 import { useAsync } from '@/hooks/use-async'
 import { useNow } from '@/hooks/use-now'
+import { programmeMinutes, replayStatus } from '@/lib/catchup'
 import { dayWindow } from '@/lib/epg-layout'
 import { formatTime, searchable } from '@/lib/format'
 import { isAdultCategoryName } from '@/lib/storage'
 import { getLiveCategories, getLiveChannels } from '@/lib/xtream'
 import { EpgGrid, type EpgSelection } from '../epg-grid'
-import { SearchIcon } from '../icons'
+import { ReplayIcon, SearchIcon } from '../icons'
 import { Badge, Button, EmptyState, ErrorMessage, PageHeader, Spinner, cx } from '../ui'
 
 /** Days offered in the day picker, relative to today. */
@@ -189,7 +190,11 @@ export function GuideScreen() {
         <>
           {/* Reserves the height the docked panel overlays. */}
           <div aria-hidden="true" className="h-32 lg:h-24" />
-          <ProgrammeDetails selection={selection} onClose={() => setSelection(null)} />
+          <ProgrammeDetails
+            selection={selection}
+            now={now}
+            onClose={() => setSelection(null)}
+          />
         </>
       ) : null}
     </div>
@@ -205,12 +210,23 @@ export function GuideScreen() {
  */
 function ProgrammeDetails({
   selection,
+  now,
   onClose,
 }: {
   selection: EpgSelection
+  now: number
   onClose: () => void
 }) {
   const { channel, entry } = selection
+  const replay = replayStatus({ entry, channel, now })
+
+  const catchupHref = `/rattrapage?${new URLSearchParams({
+    channel: channel.id,
+    name: channel.name,
+    title: entry.title,
+    start: String(entry.start),
+    dur: String(programmeMinutes(entry)),
+  }).toString()}`
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -246,15 +262,39 @@ function ProgrammeDetails({
           ) : (
             <p className="mt-2 text-sm text-ink-500">Aucun résumé fourni par le portail.</p>
           )}
+
+          {!replay.replayable && replay.reason !== 'not-finished' ? (
+            <p className="mt-2 text-xs text-ink-500">
+              {replay.reason === 'expired'
+                ? 'Ce programme est sorti de la fenêtre de rattrapage du portail.'
+                : 'Cette chaîne ne propose pas de rattrapage.'}
+            </p>
+          ) : null}
         </div>
 
-        <div className="flex shrink-0 flex-wrap gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {replay.replayable ? (
+            <Link
+              href={catchupHref}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gold-500 px-3 text-sm font-semibold text-ink-950 transition-colors hover:bg-gold-400"
+            >
+              <ReplayIcon className="size-4" />
+              Revoir
+            </Link>
+          ) : null}
+
           <Link
             href={`/direct?channel=${encodeURIComponent(channel.id)}`}
-            className="inline-flex h-9 items-center justify-center rounded-lg bg-gold-500 px-3 text-sm font-semibold text-ink-950 transition-colors hover:bg-gold-400"
+            className={cx(
+              'inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm transition-colors',
+              replay.replayable
+                ? 'border border-ink-700 bg-ink-850 text-ink-100 hover:bg-ink-800'
+                : 'bg-gold-500 font-semibold text-ink-950 hover:bg-gold-400',
+            )}
           >
             Regarder la chaîne
           </Link>
+
           <Button variant="ghost" size="sm" onClick={onClose}>
             Fermer
           </Button>
