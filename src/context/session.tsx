@@ -11,9 +11,11 @@ import {
   touchProfile,
   useActiveProfile,
   type Profile,
+  type ProfileInput,
 } from '@/lib/profiles'
 import { saveSettings, useSettings, type Settings } from '@/lib/storage'
-import { clearCatalogCache, type Credentials } from '@/lib/xtream'
+import { clearCatalogCache } from '@/lib/catalog'
+import type { Credentials } from '@/lib/credentials'
 
 interface SessionValue {
   /** The active portal profile, or null when nobody is signed in. */
@@ -23,7 +25,7 @@ interface SessionValue {
   ready: boolean
   settings: Settings
   updateSettings: (patch: Partial<Settings>) => void
-  signIn: (profile: Omit<Profile, 'id' | 'createdAt' | 'lastUsedAt'> & { id?: string }) => Profile
+  signIn: (profile: ProfileInput) => Profile
   switchProfile: (id: string) => Profile | null
   signOut: () => void
 }
@@ -65,13 +67,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     saveSettings(patch)
   }, [])
 
-  const credentials = useMemo<Credentials | null>(
-    () =>
-      profile
-        ? { host: profile.host, username: profile.username, password: profile.password }
-        : null,
-    [profile],
-  )
+  const credentials = useMemo<Credentials | null>(() => {
+    if (!profile) return null
+    return profile.source === 'm3u'
+      ? { source: 'm3u', playlistUrl: profile.playlistUrl }
+      : {
+          source: 'xtream',
+          host: profile.host,
+          username: profile.username,
+          password: profile.password,
+        }
+  }, [profile])
 
   const value = useMemo<SessionValue>(
     () => ({

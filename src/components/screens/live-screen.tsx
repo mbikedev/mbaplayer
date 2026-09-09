@@ -7,7 +7,7 @@ import { useAsync } from '@/hooks/use-async'
 import { useNow } from '@/hooks/use-now'
 import { formatTime, searchable } from '@/lib/format'
 import { isAdultCategoryName } from '@/lib/storage'
-import { getLiveCategories, getLiveChannels, getShortEpg, streamUrl } from '@/lib/xtream'
+import { getLiveCategories, getLiveChannels, getShortEpg, streamUrl } from '@/lib/catalog'
 import type { LiveChannel } from '@/lib/xtream-types'
 import { FavoriteButton } from '../favorite-button'
 import { LoadMoreSentinel, useInfiniteWindow } from '../infinite-list'
@@ -63,10 +63,14 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
     : null
   const selected = picked ?? linked ?? filtered[0] ?? null
 
-  const src = useMemo(() => {
-    if (!credentials || !selected) return null
-    return streamUrl(credentials, 'live', selected.id, settings.liveFormat)
-  }, [credentials, selected, settings.liveFormat])
+  // Resolving a stream address is asynchronous: in playlist mode it comes from
+  // the playlist itself, which may still be loading.
+  const source = useAsync(
+    () => streamUrl(credentials!, 'live', selected!.id, settings.liveFormat),
+    [credentials, selected?.id, settings.liveFormat],
+    { enabled: Boolean(credentials && selected) },
+  )
+  const src = source.data ?? null
 
   return (
     <div className="space-y-6">

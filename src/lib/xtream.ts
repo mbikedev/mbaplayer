@@ -1,4 +1,5 @@
 import { catchupUrlCandidates, portalClockFrom, type PortalClock } from './catchup'
+import type { XtreamCredentials } from './credentials'
 import { buildStreamUrl, type StreamKind } from './portal'
 import {
   isAuthenticated,
@@ -30,11 +31,11 @@ import type {
   SeriesDetail,
 } from './xtream-types'
 
-export interface Credentials {
-  host: string
-  username: string
-  password: string
-}
+/**
+ * Re-exported under its old name so the Xtream backend reads naturally; the
+ * catalogue layer is what decides which backend a profile uses.
+ */
+export type Credentials = XtreamCredentials
 
 export class XtreamError extends Error {
   constructor(message: string) {

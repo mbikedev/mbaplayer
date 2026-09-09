@@ -20,6 +20,12 @@ Points à connaître avant de modifier le code :
   routes fetchent une URL fournie par le client ; sans ce filtre, c'est une
   faille SSRF. Les tests dans `tests/safe-fetch.test.ts` cadrent son
   comportement — ne les affaiblissez pas pour faire passer un cas.
+- **Deux sources d'abonnement, une seule API interne.** Les écrans importent
+  depuis `src/lib/catalog.ts`, qui aiguille vers `xtream.ts` ou `m3u-catalog.ts`
+  selon `credentials.source`. N'importez pas un backend directement depuis un
+  composant. Ce qu'une playlist ne peut pas fournir (guide, rattrapage,
+  résumés, abonnement) renvoie vide ou `null` — ne l'inventez pas, et laissez
+  les écrans l'expliquer.
 - **Les portails Xtream sont incohérents.** Le même champ peut être un nombre ou
   une chaîne selon le serveur. Tout passe par `src/lib/xtream-normalize.ts`
   avant d'atteindre l'interface ; ajoutez-y les nouveaux champs plutôt que de

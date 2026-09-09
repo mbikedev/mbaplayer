@@ -10,9 +10,12 @@ N'utilisez que des services auxquels vous êtes légalement abonné.
 
 ## Fonctionnalités
 
-- **Connexion Xtream Codes** — adresse du portail, identifiant, mot de passe.
-  Coller un lien M3U complet (`get.php?username=…&password=…`) remplit le
-  formulaire automatiquement.
+- **Deux types d'abonnement.** *API Xtream Codes* (adresse du portail,
+  identifiant, mot de passe) donne accès à tout. *Lien M3U* charge la playlist
+  seule, pour les offres dont le `player_api.php` répond 404. Si la connexion
+  API échoue avec un 404, l'application propose de basculer en mode playlist.
+  Coller un lien M3U complet dans le champ portail remplit aussi le formulaire
+  automatiquement.
 - **TV en direct** — liste des chaînes par catégorie, recherche, lecteur intégré
   et guide EPG « en ce moment / à suivre ».
 - **Guide TV** — grille complète des programmes : axe du temps horizontal,
@@ -41,6 +44,24 @@ npm run dev
 ```
 
 Puis ouvrez http://localhost:3000 et saisissez les informations de votre portail.
+
+### Ce que le mode playlist ne peut pas faire
+
+Une playlist M3U est une liste de noms et de liens, rien de plus. Par rapport à
+l'API Xtream Codes, il manque :
+
+| | API Xtream Codes | Lien M3U |
+| --- | --- | --- |
+| Chaînes, films, séries | ✅ | ✅ |
+| Catégories | ✅ | ✅ (depuis `group-title`) |
+| Saisons et épisodes | ✅ | ✅ (déduits des noms `S01 E02`) |
+| Résumé, casting, note, durée | ✅ | ❌ absents du format |
+| Guide des programmes | ✅ | ❌ |
+| Rattrapage | ✅ | ❌ |
+| État de l'abonnement | ✅ | ❌ |
+
+Les écrans concernés l'expliquent au lieu d'afficher du vide. Si votre
+fournisseur propose les deux, l'API donne une bien meilleure expérience.
 
 ### Tester depuis un téléphone
 
@@ -151,6 +172,7 @@ src/
 ├── app/
 │   ├── (app)/              Écrans protégés (accueil, direct, guide, films, séries, favoris, compte)
 │   ├── api/
+│   │   ├── m3u/            Récupération de la playlist (plafonnée en taille)
 │   │   ├── stream/         Proxy média + réécriture des playlists HLS
 │   │   └── xtream/         Proxy player_api.php
 │   ├── lecture/            Lecteur plein écran (films et épisodes)
@@ -162,7 +184,11 @@ src/
 ├── components/epg-grid.tsx Grille du guide TV
 ├── hooks/                  useAsync, useHls, useNow, useEpgBatch
 └── lib/
+    ├── catalog.ts          Aiguillage entre les deux sources d'abonnement
     ├── catchup.ts          Horloge du portail et URLs de rattrapage
+    ├── credentials.ts      Les deux formes d'accès à un abonnement
+    ├── m3u.ts              Analyse de playlist et reconstruction du catalogue
+    ├── m3u-catalog.ts      Catalogue adossé à une playlist
     ├── epg-layout.ts       Géométrie de la grille du guide
     ├── portal.ts           Analyse d'adresse et construction des URLs de flux
     ├── xtream.ts           Client typé de l'API
@@ -179,10 +205,11 @@ npm test
 
 Les tests couvrent l'analyse des adresses de portail, la normalisation des
 réponses (les portails renvoient le même champ tantôt en nombre tantôt en
-chaîne), la géométrie de la grille du guide, la conversion vers l'horloge du
-portail (y compris de part et d'autre d'un changement d'heure), la construction
-des URLs de rattrapage, la réécriture des playlists HLS, le filtre SSRF et les
-deux routes de proxy. Aucune requête réseau réelle n'est effectuée.
+chaîne), l'analyse des playlists M3U (attributs, classement des entrées,
+reconstruction des saisons depuis les noms d'épisodes), la géométrie de la
+grille du guide, la conversion vers l'horloge du portail (y compris de part et
+d'autre d'un changement d'heure), la construction des URLs de rattrapage, la
+réécriture des playlists HLS, le filtre SSRF et les trois routes de proxy. Aucune requête réseau réelle n'est effectuée.
 
 ### Comment le guide charge ses données
 
