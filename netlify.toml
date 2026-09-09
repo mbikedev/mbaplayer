@@ -1,0 +1,23 @@
+# Netlify build configuration.
+#
+# Netlify detects Next.js on its own, but two things are worth pinning rather
+# than inherited: the Node version, and the adapter.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  # Next.js 16 requires Node 20.9 or newer and refuses to build on older ones.
+  # Netlify's default has lagged behind that, so it is set explicitly.
+  NODE_VERSION = "22"
+
+[[plugins]]
+  # Turns the App Router's server routes — including the three proxy routes
+  # this app cannot work without — into Netlify Functions.
+  package = "@netlify/plugin-nextjs"
+
+# The media proxy streams video, and a serverless function is a poor place to
+# do that: platforms cap how long one may run. Playback of anything longer than
+# that cap will be cut off. Nothing here can lift the cap — it is a property of
+# the platform — so this is a note for whoever wonders why a film stops.
