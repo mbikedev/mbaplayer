@@ -35,8 +35,8 @@ describe('POST /api/xtream', () => {
     await POST(
       request({
         host: HOST,
-        username: 'alice',
-        password: 's3cret',
+        username: 'example-user',
+        password: 'not-a-real-password',
         action: 'get_live_streams',
         params: { category_id: 7 },
       }),
@@ -44,8 +44,8 @@ describe('POST /api/xtream', () => {
 
     const called = new URL(spy.mock.calls[0][0])
     expect(called.pathname).toBe('/player_api.php')
-    expect(called.searchParams.get('username')).toBe('alice')
-    expect(called.searchParams.get('password')).toBe('s3cret')
+    expect(called.searchParams.get('username')).toBe('example-user')
+    expect(called.searchParams.get('password')).toBe('not-a-real-password')
     expect(called.searchParams.get('action')).toBe('get_live_streams')
     // Numbers are stringified rather than dropped.
     expect(called.searchParams.get('category_id')).toBe('7')
@@ -54,22 +54,22 @@ describe('POST /api/xtream', () => {
   it('omits the action for the bare authentication call', async () => {
     const spy = stubFetch(new Response(JSON.stringify({ user_info: { auth: 1 } })))
 
-    await POST(request({ host: HOST, username: 'alice', password: 's3cret', action: '' }))
+    await POST(request({ host: HOST, username: 'example-user', password: 'not-a-real-password', action: '' }))
 
     expect(new URL(spy.mock.calls[0][0]).searchParams.has('action')).toBe(false)
   })
 
   it('keeps credentials out of the URL of its own response', async () => {
     stubFetch(new Response(JSON.stringify({ user_info: { auth: 1 } })))
-    const response = await POST(request({ host: HOST, username: 'alice', password: 's3cret' }))
-    expect(response.url).not.toContain('s3cret')
+    const response = await POST(request({ host: HOST, username: 'example-user', password: 'not-a-real-password' }))
+    expect(response.url).not.toContain('not-a-real-password')
     expect(response.headers.get('cache-control')).toBe('no-store')
   })
 
   it('rejects a request with missing credentials', async () => {
     const spy = stubFetch(new Response('{}'))
 
-    expect((await POST(request({ host: HOST, username: 'alice' }))).status).toBe(400)
+    expect((await POST(request({ host: HOST, username: 'example-user' }))).status).toBe(400)
     expect((await POST(request({ username: 'a', password: 'b' }))).status).toBe(400)
     expect(spy).not.toHaveBeenCalled()
   })

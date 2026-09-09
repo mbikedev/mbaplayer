@@ -28,9 +28,9 @@ describe('parsePortalInput', () => {
 
   it('extracts credentials from a get.php playlist URL', () => {
     const parsed = parsePortalInput(
-      'http://p.tv:8080/get.php?username=alice&password=s3cret&type=m3u_plus&output=ts',
+      'http://p.tv:8080/get.php?username=example-user&password=not-a-real-password&type=m3u_plus&output=ts',
     )
-    expect(parsed).toEqual({ host: 'http://p.tv:8080', username: 'alice', password: 's3cret' })
+    expect(parsed).toEqual({ host: 'http://p.tv:8080', username: 'example-user', password: 'not-a-real-password' })
   })
 
   it('rejects empty and non-http input', () => {
@@ -53,17 +53,17 @@ describe('playerApiUrl', () => {
 })
 
 describe('buildStreamUrl', () => {
-  const base = { host: 'http://p.tv:8080', username: 'alice', password: 's3cret' }
+  const base = { host: 'http://p.tv:8080', username: 'example-user', password: 'not-a-real-password' }
 
   it('routes each content kind to its own path segment', () => {
     expect(buildStreamUrl({ ...base, kind: 'live', streamId: '42', extension: 'm3u8' })).toBe(
-      'http://p.tv:8080/live/alice/s3cret/42.m3u8',
+      'http://p.tv:8080/live/example-user/not-a-real-password/42.m3u8',
     )
     expect(buildStreamUrl({ ...base, kind: 'movie', streamId: '7', extension: 'mkv' })).toBe(
-      'http://p.tv:8080/movie/alice/s3cret/7.mkv',
+      'http://p.tv:8080/movie/example-user/not-a-real-password/7.mkv',
     )
     expect(buildStreamUrl({ ...base, kind: 'series', streamId: '9', extension: 'mp4' })).toBe(
-      'http://p.tv:8080/series/alice/s3cret/9.mp4',
+      'http://p.tv:8080/series/example-user/not-a-real-password/9.mp4',
     )
   })
 
@@ -87,8 +87,8 @@ describe('buildStreamUrl', () => {
 
   it('offers the legacy root-level form as a live fallback', () => {
     expect(liveStreamCandidates({ ...base, streamId: '42', extension: 'm3u8' })).toEqual([
-      'http://p.tv:8080/live/alice/s3cret/42.m3u8',
-      'http://p.tv:8080/alice/s3cret/42.m3u8',
+      'http://p.tv:8080/live/example-user/not-a-real-password/42.m3u8',
+      'http://p.tv:8080/example-user/not-a-real-password/42.m3u8',
     ])
   })
 })

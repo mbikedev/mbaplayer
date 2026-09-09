@@ -140,8 +140,8 @@ describe('programmeMinutes', () => {
 describe('catchupUrlCandidates', () => {
   const request = {
     host: 'http://p.tv:8080',
-    username: 'alice',
-    password: 's3cret',
+    username: 'example-user',
+    password: 'not-a-real-password',
     streamId: '42',
     start: Date.UTC(2026, 8, 9, 18, 0),
     durationMinutes: 90,
@@ -150,7 +150,7 @@ describe('catchupUrlCandidates', () => {
 
   it('builds the modern path form first', () => {
     expect(catchupUrlCandidates(request)[0]).toBe(
-      'http://p.tv:8080/timeshift/alice/s3cret/90/2026-09-09:20-00/42.m3u8',
+      'http://p.tv:8080/timeshift/example-user/not-a-real-password/90/2026-09-09:20-00/42.m3u8',
     )
   })
 
@@ -160,7 +160,7 @@ describe('catchupUrlCandidates', () => {
     expect(legacy.searchParams.get('stream')).toBe('42')
     expect(legacy.searchParams.get('start')).toBe('2026-09-09:20-00')
     expect(legacy.searchParams.get('duration')).toBe('90')
-    expect(legacy.searchParams.get('password')).toBe('s3cret')
+    expect(legacy.searchParams.get('password')).toBe('not-a-real-password')
   })
 
   it('percent-encodes credentials in the path form', () => {
