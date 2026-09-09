@@ -29,6 +29,26 @@ function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 })
 }
 
+/**
+ * The attempted URL with the credentials masked, safe to show the user.
+ *
+ * When a portal answers 4xx there is nothing in the response worth reporting —
+ * what the user needs is the address that was actually requested, so they can
+ * see whether the host, port or path is the part that is wrong. Without it the
+ * error is untraceable from the outside.
+ */
+function redactedTarget(target: string): string {
+  try {
+    const url = new URL(target)
+    for (const key of ['username', 'password']) {
+      if (url.searchParams.has(key)) url.searchParams.set(key, '***')
+    }
+    return url.toString()
+  } catch {
+    return '(URL invalide)'
+  }
+}
+
 export async function POST(request: Request) {
   let body: XtreamRequestBody
   try {
@@ -88,10 +108,15 @@ export async function POST(request: Request) {
   }
 
   if (!upstream.ok) {
-    return NextResponse.json(
-      { error: `Le portail a répondu ${upstream.status} ${upstream.statusText}.` },
-      { status: 502 },
-    )
+    // 404 is the common misconfiguration, not a transient failure: the host
+    // answers but serves no Xtream API there. Naming the address and the
+    // usual causes turns a dead end into something the user can act on.
+    const detail =
+      upstream.status === 404
+        ? `Le portail a répondu 404 pour ${redactedTarget(target)}. Cette adresse n’expose pas l’API Xtream Codes — vérifiez le port, ou demandez à votre fournisseur l’adresse « Xtream Codes API » (souvent différente du lien M3U).`
+        : `Le portail a répondu ${upstream.status} ${upstream.statusText} pour ${redactedTarget(target)}.`
+
+    return NextResponse.json({ error: detail }, { status: 502 })
   }
 
   const text = await upstream.text()
@@ -104,7 +129,9 @@ export async function POST(request: Request) {
     })
   } catch {
     return NextResponse.json(
-      { error: 'Réponse illisible du portail (identifiants ou adresse incorrects ?).' },
+      {
+        error: `Réponse illisible du portail à ${redactedTarget(target)} — ce n’est pas du JSON. L’adresse pointe peut-être vers une page web plutôt que vers l’API Xtream Codes.`,
+      },
       { status: 502 },
     )
   }

@@ -101,6 +101,39 @@ describe('POST /api/xtream', () => {
     await expect(response.json()).resolves.toHaveProperty('error')
   })
 
+  it('names the attempted address on a 404 so the user can see what was wrong', async () => {
+    stubFetch(new Response('', { status: 404, statusText: 'Not Found' }))
+
+    const response = await POST(
+      request({ host: HOST, username: 'example-user', password: 'not-a-real-password' }),
+    )
+    const body = (await response.json()) as { error: string }
+
+    expect(response.status).toBe(502)
+    expect(body.error).toContain('/player_api.php')
+    expect(body.error).toContain('Xtream Codes')
+  })
+
+  it('never leaks the password into an error the interface displays', async () => {
+    // These messages are rendered on screen and get screenshotted and shared,
+    // so the credentials must be masked in every branch that echoes the URL.
+    for (const upstream of [
+      new Response('', { status: 404, statusText: 'Not Found' }),
+      new Response('', { status: 500, statusText: 'Server Error' }),
+      new Response('<html>nope</html>', { status: 200 }),
+    ]) {
+      stubFetch(upstream)
+      const response = await POST(
+        request({ host: HOST, username: 'example-user', password: 'hunter2-secret' }),
+      )
+      const body = (await response.json()) as { error: string }
+
+      expect(body.error).not.toContain('hunter2-secret')
+      expect(body.error).toContain('***')
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('reports an upstream HTTP failure as a gateway error', async () => {
     stubFetch(new Response('', { status: 521, statusText: 'Web Server Is Down' }))
     expect((await POST(request({ host: HOST, username: 'a', password: 'b' }))).status).toBe(502)
