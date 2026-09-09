@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isHlsPlaylist, rewritePlaylist } from '@/lib/server/hls-rewrite'
 import { UnsafeUrlError, assertFetchableUrl, decodeTarget } from '@/lib/server/safe-fetch'
+import { PORTAL_USER_AGENT } from '@/lib/server/user-agent'
 
 /**
  * Streams media from the portal through the app's own origin.
@@ -11,7 +12,6 @@ import { UnsafeUrlError, assertFetchableUrl, decodeTarget } from '@/lib/server/s
  * point back at this route or the player would go direct and fail again.
  */
 
-const USER_AGENT = 'MBAPlayer/1.0 (Xtream Codes client)'
 const REQUEST_TIMEOUT_MS = 30_000
 
 /** Headers worth forwarding from the upstream response to the player. */
@@ -41,7 +41,7 @@ async function handle(request: Request, method: 'GET' | 'HEAD') {
   }
 
   const upstreamHeaders: Record<string, string> = {
-    'User-Agent': USER_AGENT,
+    'User-Agent': PORTAL_USER_AGENT,
     Accept: '*/*',
   }
   // Seeking in a movie depends on byte ranges reaching the origin.

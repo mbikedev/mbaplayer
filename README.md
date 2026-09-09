@@ -92,6 +92,22 @@ elle sort de ces plages. Cette option ne concerne que `next dev`.
 | Variable                        | Défaut | Effet                                                                                                       |
 | ------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------- |
 | `MBAPLAYER_ALLOW_PRIVATE_HOSTS` | absent | À `1`, autorise les portails sur adresse privée ou locale (`192.168.…`, `localhost`). Voir la section suivante. |
+| `MBAPLAYER_USER_AGENT`          | `VLC/3.0.20 LibVLC/3.0.20` | Signature envoyée au portail. Voir ci-dessous. |
+
+### Si le portail répond 404 alors qu'il fonctionne ailleurs
+
+Beaucoup de panneaux Xtream filtrent sur le User-Agent et répondent **404 aux
+clients qu'ils ne reconnaissent pas** — le même code qu'un chemin inexistant, ce
+qui rend la cause invisible. Un portail qui marche dans une application et
+répond 404 dans une autre, depuis le même réseau et avec les mêmes identifiants,
+c'est presque toujours ça.
+
+L'application se présente donc comme VLC, la signature que les panneaux
+acceptent le plus systématiquement. Si le vôtre en attend une autre, changez-la :
+
+```bash
+MBAPLAYER_USER_AGENT="IBOPlayer/1.0" npm run dev
+```
 
 ## Comment ça marche
 

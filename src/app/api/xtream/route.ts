@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { playerApiUrl } from '@/lib/portal'
 import { UnsafeUrlError, assertFetchableUrl } from '@/lib/server/safe-fetch'
+import { PORTAL_USER_AGENT } from '@/lib/server/user-agent'
 
 /**
  * Proxies `player_api.php` calls to the user's portal.
@@ -12,10 +13,6 @@ import { UnsafeUrlError, assertFetchableUrl } from '@/lib/server/safe-fetch'
  */
 
 const REQUEST_TIMEOUT_MS = 25_000
-
-// Portals routinely reject requests from a default fetch agent, so identify as
-// a regular player client.
-const USER_AGENT = 'MBAPlayer/1.0 (Xtream Codes client)'
 
 interface XtreamRequestBody {
   host?: unknown
@@ -90,7 +87,7 @@ export async function POST(request: Request) {
   let upstream: Response
   try {
     upstream = await fetch(target, {
-      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json, text/plain, */*' },
+      headers: { 'User-Agent': PORTAL_USER_AGENT, Accept: 'application/json, text/plain, */*' },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       cache: 'no-store',
       redirect: 'follow',
