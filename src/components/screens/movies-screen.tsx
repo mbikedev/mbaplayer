@@ -1,7 +1,7 @@
 'use client'
 
 import { CatalogBrowser } from '../catalog-browser'
-import { getMovieCategories, getMovies } from '@/lib/xtream'
+import { getMovieCategories, getMovies } from '@/lib/catalog'
 
 export function MoviesScreen() {
   return (

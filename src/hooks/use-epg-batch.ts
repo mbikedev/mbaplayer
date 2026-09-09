@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { getChannelEpg, type Credentials } from '@/lib/xtream'
+import { getChannelEpg } from '@/lib/catalog'
+import type { Credentials } from '@/lib/credentials'
 import type { EpgEntry } from '@/lib/xtream-types'
 
 /**

@@ -10,7 +10,7 @@ import { LoadMoreSentinel, useInfiniteWindow } from './infinite-list'
 import { PosterCard, PosterGrid } from './poster-card'
 import { Button, EmptyState, ErrorMessage, GridSkeleton, PageHeader, cx } from './ui'
 import { RefreshIcon, SearchIcon } from './icons'
-import type { Credentials } from '@/lib/xtream'
+import type { Credentials } from '@/lib/credentials'
 
 export interface CatalogItem {
   id: string

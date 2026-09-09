@@ -1,7 +1,7 @@
 'use client'
 
 import { CatalogBrowser } from '../catalog-browser'
-import { getSeries, getSeriesCategories } from '@/lib/xtream'
+import { getSeries, getSeriesCategories } from '@/lib/catalog'
 
 export function SeriesScreen() {
   return (

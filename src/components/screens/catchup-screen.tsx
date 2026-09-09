@@ -6,7 +6,7 @@ import { useSession } from '@/context/session'
 import { useAsync } from '@/hooks/use-async'
 import { formatTime } from '@/lib/format'
 import { VIEWER_CLOCK } from '@/lib/catchup'
-import { catchupStreamUrls, getPortalClock } from '@/lib/xtream'
+import { catchupStreamUrls, getPortalClock } from '@/lib/catalog'
 import { VideoPlayer } from '../video-player'
 import { EmptyState, LinkButton, Spinner } from '../ui'
 
@@ -44,18 +44,21 @@ export function CatchupScreen({
     enabled: Boolean(credentials),
   })
 
-  const sources = useMemo(() => {
-    if (!credentials || !channelId || !start || !durationMinutes) return []
-    // Falling back to the viewer's clock is better than not playing at all: it
-    // is correct whenever the portal runs in the viewer's timezone.
-    return catchupStreamUrls(
-      credentials,
-      clock.data ?? VIEWER_CLOCK,
-      channelId,
-      start,
-      durationMinutes,
-    )
-  }, [credentials, clock.data, channelId, start, durationMinutes])
+  // Falling back to the viewer's clock is better than not playing at all: it
+  // is correct whenever the portal runs in the viewer's timezone.
+  const candidates = useAsync(
+    () =>
+      catchupStreamUrls(
+        credentials!,
+        clock.data ?? VIEWER_CLOCK,
+        channelId,
+        start,
+        durationMinutes,
+      ),
+    [credentials, clock.data, channelId, start, durationMinutes],
+    { enabled: Boolean(credentials && channelId && start && durationMinutes) },
+  )
+  const sources = useMemo(() => candidates.data ?? [], [candidates.data])
 
   const handleUnplayable = useCallback(() => {
     setCandidateIndex((index) => (index + 1 < sources.length ? index + 1 : index))

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useSession } from '@/context/session'
 import { useAsync } from '@/hooks/use-async'
 import { saveResume } from '@/lib/storage'
-import { getMovieDetail, getSeriesDetail, streamUrl } from '@/lib/xtream'
+import { getMovieDetail, getSeriesDetail, streamUrl } from '@/lib/catalog'
 import type { Episode, SeriesDetail } from '@/lib/xtream-types'
 import { VideoPlayer } from '../video-player'
 import { EmptyState, ErrorMessage, LinkButton, Spinner } from '../ui'
@@ -77,10 +77,12 @@ export function PlaybackScreen({
       : (movie.data?.releaseDate?.slice(0, 4) ?? null)
   const poster = kind === 'movie' ? (movie.data?.poster ?? null) : (episode?.image ?? series.data?.poster ?? null)
 
-  const src = useMemo(() => {
-    if (!credentials || !streamId) return null
-    return streamUrl(credentials, kind, streamId, extension)
-  }, [credentials, kind, streamId, extension])
+  const source = useAsync(
+    () => streamUrl(credentials!, kind, streamId, extension),
+    [credentials, kind, streamId, extension],
+    { enabled: Boolean(credentials && streamId) },
+  )
+  const src = source.data ?? null
 
   const handleProgress = useCallback(
     (position: number, duration: number) => {

@@ -15,14 +15,60 @@ import { EMPTY_ARRAY, notifyLocalChange, useLocalValue } from './local-store'
 const PROFILES_KEY = 'mbaplayer.profiles.v1'
 const ACTIVE_KEY = 'mbaplayer.activeProfile.v1'
 
-export interface Profile {
+interface BaseProfile {
   id: string
   name: string
+  createdAt: number
+  lastUsedAt: number
+}
+
+export interface XtreamProfile extends BaseProfile {
+  source: 'xtream'
   host: string
   username: string
   password: string
-  createdAt: number
-  lastUsedAt: number
+}
+
+export interface PlaylistProfile extends BaseProfile {
+  source: 'm3u'
+  playlistUrl: string
+}
+
+export type Profile = XtreamProfile | PlaylistProfile
+
+/**
+ * A profile as supplied on sign-in, before storage assigns the identity fields.
+ *
+ * Written as a union of each variant rather than `Omit<Profile, …>`, because
+ * `Omit` collapses a union into one object with the shared keys only — which
+ * would let an Xtream profile be saved with a playlist URL.
+ */
+export type ProfileInput =
+  | (Omit<XtreamProfile, 'id' | 'createdAt' | 'lastUsedAt'> & { id?: string })
+  | (Omit<PlaylistProfile, 'id' | 'createdAt' | 'lastUsedAt'> & { id?: string })
+
+/** What identifies the subscription in a profile list. */
+export function profileSubtitle(profile: Profile): string {
+  if (profile.source === 'xtream') {
+    return `${profile.username} · ${profile.host.replace(/^https?:\/\//, '')}`
+  }
+  try {
+    return `Playlist · ${new URL(profile.playlistUrl).host}`
+  } catch {
+    return 'Playlist'
+  }
+}
+
+/**
+ * Adds the source discriminator to a profile stored before playlist mode
+ * existed. Those were all Xtream, and dropping them on upgrade would silently
+ * sign the user out.
+ */
+function migrate(raw: Profile & { source?: string }): Profile | null {
+  if (raw.source === 'm3u') return raw.playlistUrl ? (raw as PlaylistProfile) : null
+  const legacy = raw as XtreamProfile
+  if (!legacy.host) return null
+  return { ...legacy, source: 'xtream' }
 }
 
 function readJson<T>(key: string, fallback: T): T {
@@ -47,10 +93,12 @@ function writeJson(key: string, value: unknown): void {
 }
 
 export function listProfiles(): Profile[] {
-  const profiles = readJson<Profile[]>(PROFILES_KEY, [])
+  const profiles = readJson<(Profile & { source?: string })[]>(PROFILES_KEY, [])
   if (!Array.isArray(profiles)) return []
   return profiles
-    .filter((p): p is Profile => Boolean(p && typeof p === 'object' && p.id && p.host))
+    .filter((p) => Boolean(p && typeof p === 'object' && p.id))
+    .map(migrate)
+    .filter((p): p is Profile => p !== null)
     .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
 }
 
@@ -58,28 +106,38 @@ export function getProfile(id: string): Profile | null {
   return listProfiles().find((p) => p.id === id) ?? null
 }
 
-export function saveProfile(input: Omit<Profile, 'id' | 'createdAt' | 'lastUsedAt'> & { id?: string }): Profile {
+export function saveProfile(input: ProfileInput): Profile {
   const profiles = listProfiles()
   const now = Date.now()
 
-  // Re-logging into the same portal with the same user updates that profile
-  // instead of stacking duplicates.
+  // Re-logging into the same subscription updates that profile instead of
+  // stacking duplicates.
   const existing = input.id
     ? profiles.find((p) => p.id === input.id)
-    : profiles.find((p) => p.host === input.host && p.username === input.username)
+    : profiles.find((p) => sameSubscription(p, input))
 
   const profile: Profile = existing
-    ? { ...existing, ...input, id: existing.id, lastUsedAt: now }
-    : {
+    ? ({ ...existing, ...input, id: existing.id, lastUsedAt: now } as Profile)
+    : ({
         ...input,
         id: crypto.randomUUID(),
         createdAt: now,
         lastUsedAt: now,
-      }
+      } as Profile)
 
   const next = [profile, ...profiles.filter((p) => p.id !== profile.id)]
   writeJson(PROFILES_KEY, next)
   return profile
+}
+
+/** Two profiles are the same subscription when they point at the same access. */
+function sameSubscription(a: Profile, b: ProfileInput): boolean {
+  if (a.source !== b.source) return false
+  if (a.source === 'xtream' && b.source === 'xtream') {
+    return a.host === b.host && a.username === b.username
+  }
+  if (a.source === 'm3u' && b.source === 'm3u') return a.playlistUrl === b.playlistUrl
+  return false
 }
 
 export function touchProfile(id: string): void {

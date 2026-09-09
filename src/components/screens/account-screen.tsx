@@ -3,8 +3,8 @@
 import { useSession } from '@/context/session'
 import { useAsync } from '@/hooks/use-async'
 import { formatDate, formatExpiry } from '@/lib/format'
-import { deleteProfile, useProfiles } from '@/lib/profiles'
-import { getAccount, clearCatalogCache } from '@/lib/xtream'
+import { deleteProfile, profileSubtitle, useProfiles } from '@/lib/profiles'
+import { getAccount, clearCatalogCache } from '@/lib/catalog'
 import { Badge, Button, ErrorMessage, PageHeader, Spinner, cx } from '../ui'
 import { LogoutIcon, RefreshIcon, TrashIcon, UserIcon } from '../icons'
 
@@ -20,7 +20,7 @@ export function AccountScreen() {
     <div className="max-w-3xl space-y-8">
       <PageHeader
         title="Compte et réglages"
-        subtitle={profile ? `${profile.username} · ${profile.host.replace(/^https?:\/\//, '')}` : undefined}
+        subtitle={profile ? profileSubtitle(profile) : undefined}
         actions={
           <Button
             variant="secondary"
@@ -48,6 +48,11 @@ export function AccountScreen() {
           <div className="pt-4">
             <ErrorMessage message={account.error} onRetry={account.reload} />
           </div>
+        ) : profile?.source === 'm3u' ? (
+          <p className="mt-4 text-sm leading-relaxed text-ink-400">
+            Une playlist M3U ne transporte aucune information d’abonnement : ni échéance, ni
+            nombre de connexions. Ces données viennent de l’API Xtream Codes.
+          </p>
         ) : account.data ? (
           <dl className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2">
             <Row label="Statut">
@@ -164,7 +169,7 @@ export function AccountScreen() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink-50">{entry.name}</span>
                   <span className="block truncate text-xs text-ink-400">
-                    {entry.username} · {entry.host.replace(/^https?:\/\//, '')}
+                    {profileSubtitle(entry)}
                   </span>
                 </span>
                 {entry.id === profile?.id ? <Badge tone="gold">Actif</Badge> : null}

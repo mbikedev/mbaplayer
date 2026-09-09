@@ -9,10 +9,10 @@ import { programmeMinutes, replayStatus } from '@/lib/catchup'
 import { dayWindow } from '@/lib/epg-layout'
 import { formatTime, searchable } from '@/lib/format'
 import { isAdultCategoryName } from '@/lib/storage'
-import { getLiveCategories, getLiveChannels } from '@/lib/xtream'
+import { getLiveCategories, getLiveChannels, supportsGuide } from '@/lib/catalog'
 import { EpgGrid, type EpgSelection } from '../epg-grid'
 import { ReplayIcon, SearchIcon } from '../icons'
-import { Badge, Button, EmptyState, ErrorMessage, PageHeader, Spinner, cx } from '../ui'
+import { Badge, Button, EmptyState, ErrorMessage, LinkButton, PageHeader, Spinner, cx } from '../ui'
 
 /** Days offered in the day picker, relative to today. */
 const DAY_OFFSETS = [-2, -1, 0, 1, 2, 3, 4]
@@ -33,11 +33,16 @@ export function GuideScreen() {
   const [query, setQuery] = useState('')
   const [selection, setSelection] = useState<EpgSelection | null>(null)
 
+  // A playlist declares an XMLTV address at best; parsing that is a separate
+  // job the app does not do yet, so the screen explains rather than showing an
+  // empty grid the user would read as a bug.
+  const guideAvailable = credentials ? supportsGuide(credentials) : true
+
   const categories = useAsync(() => getLiveCategories(credentials!), [credentials], {
-    enabled: Boolean(credentials),
+    enabled: Boolean(credentials) && guideAvailable,
   })
   const channels = useAsync(() => getLiveChannels(credentials!), [credentials], {
-    enabled: Boolean(credentials),
+    enabled: Boolean(credentials) && guideAvailable,
   })
 
   const hiddenCategoryIds = useMemo(() => {
@@ -70,6 +75,23 @@ export function GuideScreen() {
   // `useNow` has no server snapshot — a clock read during render would be
   // impure — so the whole screen waits one frame for the client's time rather
   // than briefly labelling every day from the epoch.
+  if (!guideAvailable) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Guide TV" />
+        <EmptyState
+          title="Pas de guide avec une playlist M3U"
+          description="Une playlist ne contient que des chaînes et des liens, sans grille de programmes. Le guide demande l’API Xtream Codes — demandez à votre fournisseur s’il propose des identifiants API."
+          action={
+            <LinkButton href="/direct" size="sm" variant="secondary">
+              Aller à la TV en direct
+            </LinkButton>
+          }
+        />
+      </div>
+    )
+  }
+
   if (!now) {
     return (
       <div className="space-y-6">

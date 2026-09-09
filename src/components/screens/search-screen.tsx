@@ -5,7 +5,7 @@ import { useMemo } from 'react'
 import { useSession } from '@/context/session'
 import { useAsync } from '@/hooks/use-async'
 import { searchable } from '@/lib/format'
-import { getLiveChannels, getMovies, getSeries } from '@/lib/xtream'
+import { getLiveChannels, getMovies, getSeries } from '@/lib/catalog'
 import { PosterCard, PosterGrid } from '../poster-card'
 import { EmptyState, ErrorMessage, GridSkeleton, PageHeader } from '../ui'
 
