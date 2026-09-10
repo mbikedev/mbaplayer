@@ -63,6 +63,24 @@ l'API Xtream Codes, il manque :
 Les écrans concernés l'expliquent au lieu d'afficher du vide. Si votre
 fournisseur propose les deux, l'API donne une bien meilleure expérience.
 
+### Installation en une commande sous Windows
+
+Le dépôt contient un script qui vérifie Node.js et git, installe ce qui manque
+via `winget`, clone le dépôt, installe les dépendances et démarre le serveur.
+
+Téléchargez `scripts/setup-windows.ps1`, puis dans PowerShell :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+```
+
+`-ExecutionPolicy Bypass` est nécessaire parce que Windows refuse par défaut
+d'exécuter un script téléchargé. L'option ne vaut que pour cette exécution et ne
+modifie aucun réglage du système.
+
+Options : `-InstallPath` pour choisir l'emplacement, `-AllowPrivateHosts` si
+votre portail est sur votre réseau local.
+
 ### Tester depuis un téléphone
 
 MBA Player est une PWA : l'installer et lire une vidéo sur mobile fait partie du
