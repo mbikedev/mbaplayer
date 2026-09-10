@@ -113,28 +113,43 @@ export async function getSeriesDetail(
 /**
  * Programme guide.
  *
- * Empty in playlist mode. A playlist declares an XMLTV address at best, and
- * parsing that is a separate job the app does not do yet — so rather than half
- * a guide, the screens show why there is none.
+ * The Xtream API serves it per channel. A playlist has none of its own, but
+ * usually declares an XMLTV address that covers every channel at once — that
+ * document is fetched once and read from memory after that.
  */
 export async function getShortEpg(
   credentials: Credentials,
   streamId: string,
   limit?: number,
 ): Promise<EpgEntry[]> {
-  return isPlaylist(credentials) ? [] : xtream.getShortEpg(credentials, streamId, limit)
+  return isPlaylist(credentials)
+    ? playlist.getShortEpg(credentials, streamId, limit)
+    : xtream.getShortEpg(credentials, streamId, limit)
 }
 
 export async function getChannelEpg(
   credentials: Credentials,
   streamId: string,
 ): Promise<EpgEntry[]> {
-  return isPlaylist(credentials) ? [] : xtream.getChannelEpg(credentials, streamId)
+  return isPlaylist(credentials)
+    ? playlist.getChannelEpg(credentials, streamId)
+    : xtream.getChannelEpg(credentials, streamId)
 }
 
-/** True when the subscription can supply a programme guide at all. */
-export function supportsGuide(credentials: Credentials): boolean {
-  return !isPlaylist(credentials)
+/**
+ * Whether a guide can be shown at all.
+ *
+ * Always true for the Xtream API. For a playlist it depends on whether one is
+ * declared or supplied, which is only known once the playlist has loaded — so
+ * this is asynchronous rather than a property of the source alone.
+ */
+export async function supportsGuide(credentials: Credentials): Promise<boolean> {
+  return isPlaylist(credentials) ? playlist.hasGuide(credentials) : true
+}
+
+/** The XMLTV address in force for a playlist, for the account screen. */
+export async function guideUrl(credentials: Credentials): Promise<string | null> {
+  return isPlaylist(credentials) ? playlist.resolveEpgUrl(credentials) : null
 }
 
 /**

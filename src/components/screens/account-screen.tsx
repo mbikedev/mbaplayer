@@ -1,11 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { useSession } from '@/context/session'
 import { useAsync } from '@/hooks/use-async'
 import { formatDate, formatExpiry } from '@/lib/format'
 import { deleteProfile, profileSubtitle, useProfiles } from '@/lib/profiles'
-import { getAccount, clearCatalogCache } from '@/lib/catalog'
-import { Badge, Button, ErrorMessage, PageHeader, Spinner, cx } from '../ui'
+import { getAccount, clearCatalogCache, guideUrl } from '@/lib/catalog'
+import { Badge, Button, ErrorMessage, Field, PageHeader, Spinner, cx } from '../ui'
 import { LogoutIcon, RefreshIcon, TrashIcon, UserIcon } from '../icons'
 
 export function AccountScreen() {
@@ -92,6 +93,8 @@ export function AccountScreen() {
           </p>
         ) : null}
       </section>
+
+      {profile?.source === 'm3u' ? <PlaylistGuideSection /> : null}
 
       <section className="rounded-card border border-ink-800 bg-ink-900 p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-400">Lecture</h2>
@@ -248,5 +251,82 @@ function Toggle({
         />
       </button>
     </div>
+  )
+}
+
+/**
+ * The XMLTV address a playlist profile uses.
+ *
+ * A playlist usually declares its own guide, and that one is used as-is. This
+ * is for the providers that declare nothing: without an address there is no
+ * guide at all, and the guide screen sends people here to supply one.
+ */
+function PlaylistGuideSection() {
+  const { credentials, profile, signIn } = useSession()
+  const [draft, setDraft] = useState(profile?.source === 'm3u' ? (profile.epgUrl ?? '') : '')
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const current = useAsync(() => guideUrl(credentials!), [credentials], {
+    enabled: Boolean(credentials),
+  })
+
+  function save() {
+    if (profile?.source !== 'm3u') return
+    const value = draft.trim()
+    if (value && !/^https?:\/\//i.test(value)) {
+      setError('L’adresse doit commencer par http:// ou https://.')
+      return
+    }
+    setError(null)
+    // Re-saving the profile clears the catalogue cache, which is what makes the
+    // new guide take effect without a reload.
+    signIn({
+      id: profile.id,
+      source: 'm3u',
+      playlistUrl: profile.playlistUrl,
+      epgUrl: value || null,
+      name: profile.name,
+    })
+    setSaved(true)
+  }
+
+  return (
+    <section className="rounded-card border border-ink-800 bg-ink-900 p-5">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-400">
+        Guide des programmes
+      </h2>
+
+      <p className="mt-3 text-sm text-ink-400">
+        {current.loading
+          ? 'Recherche d’une adresse de guide…'
+          : current.data
+            ? 'Un guide est disponible pour cette playlist.'
+            : 'Cette playlist ne déclare aucune adresse XMLTV. Sans adresse, le guide reste vide.'}
+      </p>
+
+      <div className="mt-4 space-y-3">
+        <Field
+          label="Adresse XMLTV"
+          placeholder="http://mon-portail.tv:8080/xmltv.php?username=…"
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value)
+            setSaved(false)
+          }}
+          autoComplete="url"
+          inputMode="url"
+          error={error}
+          hint="Laissez vide pour utiliser celle que la playlist déclare, si elle en déclare une."
+        />
+
+        <div className="flex items-center gap-3">
+          <Button size="sm" onClick={save}>
+            Enregistrer
+          </Button>
+          {saved ? <span className="text-sm text-success-500">Enregistré.</span> : null}
+        </div>
+      </div>
+    </section>
   )
 }

@@ -26,6 +26,12 @@ Points à connaître avant de modifier le code :
   composant. Ce qu'une playlist ne peut pas fournir (guide, rattrapage,
   résumés, abonnement) renvoie vide ou `null` — ne l'inventez pas, et laissez
   les écrans l'expliquer.
+- **XMLTV est analysé sans DOM.** `src/lib/xmltv.ts` balaie les blocs
+  `<programme>` par expression régulière plutôt que de construire un DOM : ces
+  documents pèsent couramment des dizaines de mégaoctets. Le compromis assumé
+  est qu'un XML réellement malformé est ignoré, pas signalé. Et le décalage
+  horaire déclaré (`+0200`) doit être respecté, sinon toute la grille glisse
+  pour qui regarde depuis un autre fuseau.
 - **Les portails Xtream sont incohérents.** Le même champ peut être un nombre ou
   une chaîne selon le serveur. Tout passe par `src/lib/xtream-normalize.ts`
   avant d'atteindre l'interface ; ajoutez-y les nouveaux champs plutôt que de

@@ -1,7 +1,16 @@
 import { proxiedStreamUrl, type PlaylistCredentials } from './credentials'
 import { buildCatalog, parseM3u, type M3uCatalog } from './m3u'
+import { parseXmltv } from './xmltv'
 import type { StreamKind } from './portal'
-import type { Category, LiveChannel, Movie, MovieDetail, Series, SeriesDetail } from './xtream-types'
+import type {
+  Category,
+  EpgEntry,
+  LiveChannel,
+  Movie,
+  MovieDetail,
+  Series,
+  SeriesDetail,
+} from './xtream-types'
 
 /**
  * Catalogue backed by an M3U playlist.
@@ -29,6 +38,7 @@ const cache = new Map<string, Promise<M3uCatalog>>()
 
 export function clearPlaylistCache(): void {
   cache.clear()
+  clearGuideCache()
 }
 
 async function fetchCatalog(playlistUrl: string): Promise<M3uCatalog> {
@@ -154,4 +164,120 @@ export async function streamUrl(
 /** The XMLTV address the playlist header declares, if any. */
 export async function getEpgUrl(c: PlaylistCredentials): Promise<string | null> {
   return (await loadCatalog(c)).epgUrl
+}
+
+/* ----------------------------------- Guide ----------------------------------- */
+
+/**
+ * Parsed guides, keyed by XMLTV address, for the lifetime of the tab.
+ *
+ * One guide covers every channel at once — unlike the Xtream API, there is no
+ * per-channel endpoint — so it is fetched once and read from memory after that.
+ */
+const guideCache = new Map<string, Promise<Map<string, EpgEntry[]>>>()
+
+export function clearGuideCache(): void {
+  guideCache.clear()
+}
+
+/** The guide address in force: the viewer's override, else the playlist's own. */
+export async function resolveEpgUrl(c: PlaylistCredentials): Promise<string | null> {
+  const override = c.epgUrl?.trim()
+  if (override) return override
+  return (await loadCatalog(c)).epgUrl
+}
+
+async function fetchGuide(
+  epgUrl: string,
+  channelIds: ReadonlySet<string>,
+): Promise<Map<string, EpgEntry[]>> {
+  let response: Response
+  try {
+    response = await fetch('/api/xmltv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: epgUrl }),
+    })
+  } catch {
+    throw new PlaylistError('Connexion impossible au guide.')
+  }
+
+  if (!response.ok) {
+    let message = `Erreur ${response.status}.`
+    try {
+      const payload = (await response.json()) as { error?: unknown }
+      if (payload.error) message = String(payload.error)
+    } catch {
+      // The route answers JSON on failure; if it did not, the status stands.
+    }
+    throw new PlaylistError(message)
+  }
+
+  // Filtering to the playlist's own channels is what keeps this affordable: a
+  // provider's guide covers its whole line-up, which is routinely many times
+  // what one subscription's playlist carries.
+  return parseXmltv(await response.text(), { channelIds })
+}
+
+async function loadGuide(c: PlaylistCredentials): Promise<Map<string, EpgEntry[]>> {
+  const epgUrl = await resolveEpgUrl(c)
+  if (!epgUrl) return new Map()
+
+  const existing = guideCache.get(epgUrl)
+  if (existing) return existing
+
+  const catalog = await loadCatalog(c)
+  const channelIds = new Set(
+    catalog.live.map((channel) => channel.epgChannelId).filter((id): id is string => Boolean(id)),
+  )
+
+  // A failed load must not be cached, or one network blip would leave the guide
+  // empty for the rest of the session.
+  const pending = fetchGuide(epgUrl, channelIds).catch((error: unknown) => {
+    guideCache.delete(epgUrl)
+    throw error
+  })
+  guideCache.set(epgUrl, pending)
+  return pending
+}
+
+/** Whether a guide can be shown at all for this subscription. */
+export async function hasGuide(c: PlaylistCredentials): Promise<boolean> {
+  return (await resolveEpgUrl(c)) !== null
+}
+
+/**
+ * Programmes for one channel.
+ *
+ * The join is the playlist's `tvg-id` against XMLTV's `channel` attribute. A
+ * channel carrying no tvg-id cannot be matched to a guide entry at all, and
+ * returns empty rather than guessing by name.
+ */
+export async function getChannelEpg(
+  c: PlaylistCredentials,
+  streamId: string,
+): Promise<EpgEntry[]> {
+  try {
+    const catalog = await loadCatalog(c)
+    const channel = catalog.live.find((entry) => entry.id === streamId)
+    if (!channel?.epgChannelId) return []
+    return (await loadGuide(c)).get(channel.epgChannelId) ?? []
+  } catch {
+    // A missing guide is the normal case for many providers, not an error worth
+    // interrupting the grid for.
+    return []
+  }
+}
+
+/** "Now and next" for one channel, taken from the same guide. */
+export async function getShortEpg(
+  c: PlaylistCredentials,
+  streamId: string,
+  limit = 6,
+  now: number = Date.now(),
+): Promise<EpgEntry[]> {
+  const entries = await getChannelEpg(c, streamId)
+  const currentIndex = entries.findIndex((entry) => entry.stop > now)
+  if (currentIndex < 0) return []
+  return entries.slice(currentIndex, currentIndex + limit)
 }
