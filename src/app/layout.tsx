@@ -36,7 +36,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={inter.variable}>
+    // Browser extensions stamp their own attributes onto <html> before React
+    // hydrates (crxlauncher, Grammarly, dark-mode toggles), which React reports
+    // as a mismatch the app cannot fix. Suppression here is one level deep — it
+    // covers this element's own attributes, not the tree below it.
+    <html lang="fr" className={inter.variable} suppressHydrationWarning>
       <body className="min-h-dvh antialiased">
         <SessionProvider>{children}</SessionProvider>
         <ServiceWorkerRegistration />
