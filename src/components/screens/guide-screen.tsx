@@ -33,10 +33,14 @@ export function GuideScreen() {
   const [query, setQuery] = useState('')
   const [selection, setSelection] = useState<EpgSelection | null>(null)
 
-  // A playlist declares an XMLTV address at best; parsing that is a separate
-  // job the app does not do yet, so the screen explains rather than showing an
-  // empty grid the user would read as a bug.
-  const guideAvailable = credentials ? supportsGuide(credentials) : true
+  // For a playlist this depends on whether an XMLTV address is declared or
+  // supplied, which is only known once the playlist has loaded. Treated as
+  // available while unknown, so the grid does not flash an explanation that
+  // then turns out to be wrong.
+  const guide = useAsync(() => supportsGuide(credentials!), [credentials], {
+    enabled: Boolean(credentials),
+  })
+  const guideAvailable = guide.data ?? true
 
   const categories = useAsync(() => getLiveCategories(credentials!), [credentials], {
     enabled: Boolean(credentials) && guideAvailable,
@@ -80,11 +84,11 @@ export function GuideScreen() {
       <div className="space-y-6">
         <PageHeader title="Guide TV" />
         <EmptyState
-          title="Pas de guide avec une playlist M3U"
-          description="Une playlist ne contient que des chaînes et des liens, sans grille de programmes. Le guide demande l’API Xtream Codes — demandez à votre fournisseur s’il propose des identifiants API."
+          title="Aucun guide déclaré par cette playlist"
+          description="Cette playlist n’indique pas d’adresse XMLTV, et aucune n’a été saisie. Si votre fournisseur en propose une, ajoutez-la depuis l’écran Compte."
           action={
-            <LinkButton href="/direct" size="sm" variant="secondary">
-              Aller à la TV en direct
+            <LinkButton href="/compte" size="sm" variant="secondary">
+              Ajouter une adresse de guide
             </LinkButton>
           }
         />

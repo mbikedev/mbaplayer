@@ -56,7 +56,7 @@ l'API Xtream Codes, il manque :
 | Catégories | ✅ | ✅ (depuis `group-title`) |
 | Saisons et épisodes | ✅ | ✅ (déduits des noms `S01 E02`) |
 | Résumé, casting, note, durée | ✅ | ❌ absents du format |
-| Guide des programmes | ✅ | ❌ |
+| Guide des programmes | ✅ | ✅ si une adresse XMLTV existe |
 | Rattrapage | ✅ | ❌ |
 | État de l'abonnement | ✅ | ❌ |
 
@@ -224,6 +224,7 @@ src/
 │   ├── (app)/              Écrans protégés (accueil, direct, guide, films, séries, favoris, compte)
 │   ├── api/
 │   │   ├── m3u/            Récupération de la playlist (plafonnée en taille)
+│   │   ├── xmltv/          Récupération du guide (décompression gzip)
 │   │   ├── stream/         Proxy média + réécriture des playlists HLS
 │   │   └── xtream/         Proxy player_api.php
 │   ├── lecture/            Lecteur plein écran (films et épisodes)
@@ -239,7 +240,8 @@ src/
     ├── catchup.ts          Horloge du portail et URLs de rattrapage
     ├── credentials.ts      Les deux formes d'accès à un abonnement
     ├── m3u.ts              Analyse de playlist et reconstruction du catalogue
-    ├── m3u-catalog.ts      Catalogue adossé à une playlist
+    ├── m3u-catalog.ts      Catalogue et guide adossés à une playlist
+    ├── xmltv.ts            Analyse du guide XMLTV
     ├── epg-layout.ts       Géométrie de la grille du guide
     ├── portal.ts           Analyse d'adresse et construction des URLs de flux
     ├── xtream.ts           Client typé de l'API
@@ -261,6 +263,22 @@ reconstruction des saisons depuis les noms d'épisodes), la géométrie de la
 grille du guide, la conversion vers l'horloge du portail (y compris de part et
 d'autre d'un changement d'heure), la construction des URLs de rattrapage, la
 réécriture des playlists HLS, le filtre SSRF et les trois routes de proxy. Aucune requête réseau réelle n'est effectuée.
+
+### Le guide en mode playlist
+
+Une playlist ne contient aucun programme, mais déclare souvent une adresse
+XMLTV dans son en-tête (`x-tvg-url`). Quand c'est le cas, elle est utilisée
+automatiquement — rien à saisir. Sinon, renseignez-la vous-même à la connexion
+ou depuis l'écran **Compte**.
+
+Le document est récupéré et analysé **une seule fois**, puis filtré aux seules
+chaînes que votre playlist contient : le guide d'un fournisseur couvre
+généralement bien plus de chaînes que votre abonnement. Les fichiers `.xml.gz`
+sont décompressés automatiquement — les fournisseurs servent l'une ou l'autre
+forme sans prévenir.
+
+La jointure se fait sur `tvg-id` (playlist) ↔ `channel` (XMLTV). Une chaîne sans
+`tvg-id` ne peut être rattachée à aucun programme et reste vide.
 
 ### Comment le guide charge ses données
 

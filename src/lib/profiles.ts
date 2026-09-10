@@ -32,6 +32,8 @@ export interface XtreamProfile extends BaseProfile {
 export interface PlaylistProfile extends BaseProfile {
   source: 'm3u'
   playlistUrl: string
+  /** XMLTV address supplied by the viewer, when the playlist declares none. */
+  epgUrl?: string | null
 }
 
 export type Profile = XtreamProfile | PlaylistProfile

@@ -70,7 +70,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const credentials = useMemo<Credentials | null>(() => {
     if (!profile) return null
     return profile.source === 'm3u'
-      ? { source: 'm3u', playlistUrl: profile.playlistUrl }
+      ? { source: 'm3u', playlistUrl: profile.playlistUrl, epgUrl: profile.epgUrl ?? null }
       : {
           source: 'xtream',
           host: profile.host,

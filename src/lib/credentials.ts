@@ -21,6 +21,13 @@ export interface PlaylistCredentials {
   source: 'm3u'
   /** The full playlist URL, credentials included, exactly as the provider gave it. */
   playlistUrl: string
+  /**
+   * XMLTV address, when the viewer supplied one.
+   *
+   * A playlist usually declares its own guide in the `x-tvg-url` header, which
+   * is preferred. This is the override for the providers that declare nothing.
+   */
+  epgUrl?: string | null
 }
 
 export type Credentials = XtreamCredentials | PlaylistCredentials

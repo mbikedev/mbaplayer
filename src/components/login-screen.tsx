@@ -19,6 +19,7 @@ export function LoginScreen() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [playlistUrl, setPlaylistUrl] = useState('')
+  const [epgUrl, setEpgUrl] = useState('')
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   // Set when an Xtream attempt fails in the way a playlist-only subscription
@@ -104,13 +105,27 @@ export function LoginScreen() {
         throw new Error('L’adresse doit commencer par http:// ou https://.')
       }
 
-      const credentials: Credentials = { source: 'm3u', playlistUrl: url }
+      const guide = epgUrl.trim()
+      if (guide && !/^https?:\/\//i.test(guide)) {
+        throw new Error('L’adresse du guide doit commencer par http:// ou https://.')
+      }
+
+      const credentials: Credentials = {
+        source: 'm3u',
+        playlistUrl: url,
+        epgUrl: guide || null,
+      }
 
       // Loading the playlist is the only way to know the URL works, and it is
       // what the catalogue screens will read a moment later.
       const summary = await login(credentials)
 
-      signIn({ source: 'm3u', playlistUrl: url, name: name.trim() || summary.label })
+      signIn({
+        source: 'm3u',
+        playlistUrl: url,
+        epgUrl: guide || null,
+        name: name.trim() || summary.label,
+      })
       router.replace('/accueil')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Chargement impossible.')
@@ -327,6 +342,15 @@ export function LoginScreen() {
                   hint="Le lien complet fourni par votre revendeur, identifiants inclus."
                 />
                 <Field
+                  label="Adresse du guide XMLTV (facultatif)"
+                  placeholder="http://mon-portail.tv:8080/xmltv.php?username=…"
+                  value={epgUrl}
+                  onChange={(event) => setEpgUrl(event.target.value)}
+                  autoComplete="url"
+                  inputMode="url"
+                  hint="À renseigner seulement si la playlist n’en déclare pas elle-même."
+                />
+                <Field
                   label="Nom du profil (facultatif)"
                   placeholder="Salon"
                   value={name}
@@ -347,9 +371,9 @@ export function LoginScreen() {
                 </Button>
 
                 <p className="text-xs leading-relaxed text-ink-400">
-                  Une playlist ne contient ni résumés, ni guide des programmes, ni rattrapage —
-                  seulement les chaînes et les fichiers. Utilisez l’API Xtream Codes si votre
-                  abonnement la propose.
+                  Une playlist ne contient ni résumés ni rattrapage — seulement les chaînes et les
+                  fichiers. Le guide des programmes fonctionne si une adresse XMLTV est disponible.
+                  Utilisez l’API Xtream Codes si votre abonnement la propose.
                 </p>
               </form>
             )}
