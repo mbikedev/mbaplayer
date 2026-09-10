@@ -126,6 +126,34 @@ describe('POST /api/xtream', () => {
     expect(body.error).toContain('/player_api.php')
   })
 
+  it('explains a Cloudflare-range status instead of showing a bare number', async () => {
+    // 520-527 come from an edge in front of the portal, not the portal. A real
+    // deployment hit 520 from a cloud host against a portal that answers a home
+    // connection fine — the panel refuses datacenter ranges. The number alone
+    // sends people auditing credentials that were never the problem.
+    stubFetch(new Response('', { status: 520, statusText: '' }))
+
+    const response = await POST(
+      request({ host: HOST, username: 'example-user', password: 'not-a-real-password' }),
+    )
+    const body = (await response.json()) as { error: string }
+
+    expect(body.error).toContain('520')
+    expect(body.error).toMatch(/Cloudflare|protection/i)
+    expect(body.error).toMatch(/centres de données|domestique/i)
+  })
+
+  it('leaves ordinary upstream statuses to the generic message', async () => {
+    stubFetch(new Response('', { status: 503, statusText: 'Service Unavailable' }))
+
+    const body = (await (
+      await POST(request({ host: HOST, username: 'example-user', password: 'not-a-real-password' }))
+    ).json()) as { error: string }
+
+    expect(body.error).toContain('503')
+    expect(body.error).not.toMatch(/Cloudflare/i)
+  })
+
   it('does not pin a 404 on a single cause', async () => {
     // A portal serving the API perfectly well can still answer 404 — several
     // panels use it for bad credentials instead of returning auth:0. Asserting
