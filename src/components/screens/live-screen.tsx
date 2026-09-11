@@ -7,7 +7,7 @@ import { useAsync } from '@/hooks/use-async'
 import { useNow } from '@/hooks/use-now'
 import { formatTime, searchable } from '@/lib/format'
 import { isAdultCategoryName } from '@/lib/storage'
-import { firstPlayable, logoFallback } from '@/lib/channel-name'
+import { bannerLabel, firstPlayable, isDecorativeName, logoFallback } from '@/lib/channel-name'
 import { getLiveCategories, getLiveChannels, getShortEpg, streamUrl } from '@/lib/catalog'
 import type { LiveChannel } from '@/lib/xtream-types'
 import { FavoriteButton } from '../favorite-button'
@@ -59,6 +59,14 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
   // player from ever being empty, and is derived rather than set in an effect.
   // An explicit pick always wins, so arriving from the guide does not pin the
   // selection once the viewer starts browsing.
+  // Banners are listed but are not channels, so they must not be counted as
+  // ones: a subscription reads as 9 856 channels when a few hundred of those
+  // entries are headings.
+  const channelCount = useMemo(
+    () => filtered.reduce((total, channel) => (isDecorativeName(channel.name) ? total : total + 1), 0),
+    [filtered],
+  )
+
   const linked = initialChannelId
     ? (filtered.find((channel) => channel.id === initialChannelId) ?? null)
     : null
@@ -89,7 +97,7 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
           title="TV en direct"
           subtitle={
             channels.data
-              ? `${filtered.length.toLocaleString('fr-FR')} chaîne${filtered.length > 1 ? 's' : ''}`
+              ? `${channelCount.toLocaleString('fr-FR')} chaîne${channelCount > 1 ? 's' : ''}`
               : undefined
           }
           actions={
@@ -265,24 +273,34 @@ function ChannelList({
 
   return (
     <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto rounded-card border border-ink-800 bg-ink-900 p-1.5">
-      {shown.map((channel) => (
-        <li key={channel.id}>
-          <button
-            type="button"
-            onClick={() => onSelect(channel)}
-            aria-current={selectedId === channel.id ? 'true' : undefined}
-            className={cx(
-              'flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors',
-              selectedId === channel.id
-                ? 'bg-gold-500/15 text-gold-300'
-                : 'text-ink-200 hover:bg-ink-800',
-            )}
-          >
-            <ChannelLogo channel={channel} />
-            <span className="min-w-0 flex-1 truncate text-sm">{channel.name}</span>
-          </button>
-        </li>
-      ))}
+      {shown.map((channel) =>
+        // A banner is what the reseller meant as a group heading, so it is
+        // rendered as one: readable, and not a button that leads nowhere.
+        isDecorativeName(channel.name) ? (
+          <li key={channel.id} className="px-2.5 pb-0.5 pt-4 first:pt-1">
+            <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-ink-500">
+              {bannerLabel(channel.name)}
+            </p>
+          </li>
+        ) : (
+          <li key={channel.id}>
+            <button
+              type="button"
+              onClick={() => onSelect(channel)}
+              aria-current={selectedId === channel.id ? 'true' : undefined}
+              className={cx(
+                'flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors',
+                selectedId === channel.id
+                  ? 'bg-gold-500/15 text-gold-300'
+                  : 'text-ink-200 hover:bg-ink-800',
+              )}
+            >
+              <ChannelLogo channel={channel} />
+              <span className="min-w-0 flex-1 truncate text-sm">{channel.name}</span>
+            </button>
+          </li>
+        ),
+      )}
 
       {hasMore ? <LoadMoreSentinel ref={sentinelRef} as="li" /> : null}
     </ul>
