@@ -102,16 +102,24 @@ export function VideoPlayer({
 
   const fatalError = hls.fatalError ?? elementError
 
-  const reportUnplayable = useCallback(
-    (message: string) => {
-      setElementError(message)
-      setWaiting(false)
-      if (reportedUnplayable.current) return
-      reportedUnplayable.current = true
-      onUnplayable?.(message)
-    },
-    [onUnplayable],
-  )
+  /**
+   * Callers pass an inline arrow, so `onUnplayable` is a new function on every
+   * render of theirs. Reading it through a ref keeps `reportUnplayable` stable,
+   * which matters because the stall timer below depends on it: rebuilt each
+   * render, that timer would be cleared and re-armed for ever and never fire.
+   */
+  const latestOnUnplayable = useRef(onUnplayable)
+  useEffect(() => {
+    latestOnUnplayable.current = onUnplayable
+  })
+
+  const reportUnplayable = useCallback((message: string) => {
+    setElementError(message)
+    setWaiting(false)
+    if (reportedUnplayable.current) return
+    reportedUnplayable.current = true
+    latestOnUnplayable.current?.(message)
+  }, [])
 
   const retry = useCallback(() => {
     setElementError(null)

@@ -129,3 +129,42 @@ describe('HEAD /api/stream', () => {
     expect(await response.text()).toBe('')
   })
 })
+
+describe('client disconnect', () => {
+  /**
+   * The player abandons a stream on every channel switch. The upstream fetch
+   * has to go with it: on a `max_connections: 1` subscription a connection
+   * left open until the timeout keeps the only slot, and the channel being
+   * switched to is refused.
+   */
+  it('aborts the upstream fetch when the player stops reading', async () => {
+    const controller = new AbortController()
+    let upstreamSignal: AbortSignal | undefined
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init: RequestInit) => {
+        upstreamSignal = init.signal ?? undefined
+        return new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(new DOMException('', 'AbortError')))
+        })
+      }),
+    )
+
+    const pending = GET(
+      new Request(`http://app.local/api/stream?u=${encodeTarget(UPSTREAM)}`, {
+        signal: controller.signal,
+      }),
+    )
+
+    // Let the route reach its fetch before the player walks away.
+    await Promise.resolve()
+    expect(upstreamSignal?.aborted).toBe(false)
+
+    controller.abort()
+    const response = await pending
+
+    expect(upstreamSignal?.aborted).toBe(true)
+    expect(response.status).toBe(499)
+  })
+})
