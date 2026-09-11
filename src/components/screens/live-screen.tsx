@@ -7,7 +7,7 @@ import { useAsync } from '@/hooks/use-async'
 import { useNow } from '@/hooks/use-now'
 import { formatTime, searchable } from '@/lib/format'
 import { isAdultCategoryName } from '@/lib/storage'
-import { firstPlayable } from '@/lib/channel-name'
+import { firstPlayable, logoFallback } from '@/lib/channel-name'
 import { getLiveCategories, getLiveChannels, getShortEpg, streamUrl } from '@/lib/catalog'
 import type { LiveChannel } from '@/lib/xtream-types'
 import { FavoriteButton } from '../favorite-button'
@@ -79,33 +79,40 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="TV en direct"
-        subtitle={
-          channels.data
-            ? `${filtered.length.toLocaleString('fr-FR')} chaîne${filtered.length > 1 ? 's' : ''}`
-            : undefined
-        }
-        actions={
-          <>
-            <LinkButton variant="secondary" size="sm" href="/guide">
-              <GuideIcon className="size-4" />
-              Guide TV
-            </LinkButton>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                categories.reload()
-                channels.reload()
-              }}
-            >
-              <RefreshIcon className="size-4" />
-              Actualiser
-            </Button>
-          </>
-        }
-      />
+      {/* Pinned under the app bar: the player is tall, so reaching the channel
+          list means scrolling, and an unpinned header carried the channel count
+          and the Guide/Refresh actions off screen with it. The negative margins
+          let its background span the full width of the main column, so nothing
+          shows through while it passes underneath. */}
+      <div className="sticky top-16 z-20 -mx-4 bg-ink-950 px-4 pb-3 pt-2 sm:-mx-6 sm:px-6">
+        <PageHeader
+          title="TV en direct"
+          subtitle={
+            channels.data
+              ? `${filtered.length.toLocaleString('fr-FR')} chaîne${filtered.length > 1 ? 's' : ''}`
+              : undefined
+          }
+          actions={
+            <>
+              <LinkButton variant="secondary" size="sm" href="/guide">
+                <GuideIcon className="size-4" />
+                Guide TV
+              </LinkButton>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  categories.reload()
+                  channels.reload()
+                }}
+              >
+                <RefreshIcon className="size-4" />
+                Actualiser
+              </Button>
+            </>
+          }
+        />
+      </div>
 
       {channels.error ? <ErrorMessage message={channels.error} onRetry={channels.reload} /> : null}
 
@@ -215,6 +222,36 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
   )
 }
 
+/**
+ * A channel's logo, or a readable stand-in.
+ *
+ * Hiding a broken <img> left an empty square, which is how most of a real
+ * portal's list ends up looking: the URLs are there, the images are not.
+ * Tracking the failure lets the fallback render in its place.
+ */
+function ChannelLogo({ channel }: { channel: LiveChannel }) {
+  const [failed, setFailed] = useState(false)
+  const showImage = Boolean(channel.icon) && !failed
+
+  return (
+    <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-ink-850 text-[10px] font-semibold text-ink-400">
+      {showImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={channel.icon!}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className="size-full object-contain"
+        />
+      ) : (
+        logoFallback(channel.name, channel.num)
+      )}
+    </span>
+  )
+}
+
 function ChannelList({
   channels,
   selectedId,
@@ -241,23 +278,7 @@ function ChannelList({
                 : 'text-ink-200 hover:bg-ink-800',
             )}
           >
-            <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-ink-850 text-[10px] text-ink-400">
-              {channel.icon ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={channel.icon}
-                  alt=""
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  onError={(event) => {
-                    event.currentTarget.style.display = 'none'
-                  }}
-                  className="size-full object-contain"
-                />
-              ) : (
-                channel.num
-              )}
-            </span>
+            <ChannelLogo channel={channel} />
             <span className="min-w-0 flex-1 truncate text-sm">{channel.name}</span>
           </button>
         </li>

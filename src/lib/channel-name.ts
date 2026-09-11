@@ -58,3 +58,31 @@ export function isDecorativeName(name: string): boolean {
 export function firstPlayable<T extends { name: string }>(entries: readonly T[]): T | null {
   return entries.find((entry) => !isDecorativeName(entry.name)) ?? entries[0] ?? null
 }
+
+/**
+ * Short label to stand in for a channel logo.
+ *
+ * Portal logo URLs rot constantly — dead hosts, hotlink protection, plain 404s
+ * — and an <img> that fails leaves a blank square with no way to tell one
+ * channel from the next. The channel number is the best substitute when the
+ * portal numbers its list; otherwise the initials of the name, once the
+ * reseller's bracketed tags are stripped.
+ */
+export function logoFallback(name: string, num: number | null | undefined): string {
+  if (typeof num === 'number' && Number.isFinite(num) && num > 0) return String(num)
+
+  const words = name
+    // Reseller tags say nothing about the channel: |FR|, (FR), [4K].
+    .replace(/[|(\[][^|)\]]*[|)\]]/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  const initials = words
+    .slice(0, 2)
+    .map((word) => word[0]!.toUpperCase())
+    .join('')
+
+  return initials || '—'
+}

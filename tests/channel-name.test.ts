@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { firstPlayable, isDecorativeName } from '@/lib/channel-name'
+import { firstPlayable, isDecorativeName, logoFallback } from '@/lib/channel-name'
 
 describe('isDecorativeName', () => {
   it('recognises the banners a live list is padded with', () => {
@@ -71,5 +71,27 @@ describe('firstPlayable', () => {
 
   it('returns null for an empty list', () => {
     expect(firstPlayable([])).toBeNull()
+  })
+})
+
+describe('logoFallback', () => {
+  it('prefers the channel number when the portal numbers its list', () => {
+    expect(logoFallback('M6 FHD', 42)).toBe('42')
+  })
+
+  it('falls back to initials when there is no number', () => {
+    expect(logoFallback('M6 Music HD', 0)).toBe('MM')
+    expect(logoFallback('Canal Plus Sport', null)).toBe('CP')
+  })
+
+  it('ignores the reseller tags around the name', () => {
+    expect(logoFallback('|FR| M6 FHD', undefined)).toBe('MF')
+    expect(logoFallback('(QC) M6 INTERNATIONAL HD (FR)', null)).toBe('MI')
+    expect(logoFallback('[4K] Eurosport', null)).toBe('E')
+  })
+
+  it('never returns an empty label', () => {
+    expect(logoFallback('---', null)).toBe('—')
+    expect(logoFallback('', null)).toBe('—')
   })
 })
