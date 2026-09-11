@@ -8,6 +8,7 @@ import { useNow } from '@/hooks/use-now'
 import { formatTime, searchable } from '@/lib/format'
 import { isAdultCategoryName } from '@/lib/storage'
 import { bannerLabel, firstPlayable, isDecorativeName, logoFallback } from '@/lib/channel-name'
+import { decodableAlternative } from '@/lib/channel-variants'
 import { getLiveCategories, getLiveChannels, getShortEpg, streamUrl } from '@/lib/catalog'
 import type { LiveChannel } from '@/lib/xtream-types'
 import { FavoriteButton } from '../favorite-button'
@@ -24,6 +25,8 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
   const [activeCategory, setActiveCategory] = useState('all')
   const [query, setQuery] = useState('')
   const [picked, setPicked] = useState<LiveChannel | null>(null)
+  /** The channel the player last refused, so the offer only shows for that one. */
+  const [unplayableId, setUnplayableId] = useState<string | null>(null)
 
   const categories = useAsync(() => getLiveCategories(credentials!), [credentials], {
     enabled: Boolean(credentials),
@@ -75,6 +78,14 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
   // opening on one of those. An explicit pick still wins — a viewer who clicks
   // a banner gets the stall message rather than a silently ignored click.
   const selected = picked ?? linked ?? firstPlayable(filtered)
+
+  // Offered when the player refuses the current entry: resellers publish the
+  // same channel at several qualities and the top tiers are routinely H.265,
+  // so the answer is usually one row away in the list the viewer already has.
+  const alternative = useMemo(
+    () => (selected ? decodableAlternative(selected, channels.data ?? []) : null),
+    [selected, channels.data],
+  )
 
   // Resolving a stream address is asynchronous: in playlist mode it comes from
   // the playlist itself, which may still be loading.
@@ -131,6 +142,7 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
               <VideoPlayer
                 key={selected.id}
                 src={src}
+                onUnplayable={() => setUnplayableId(selected.id)}
                 title={selected.name}
                 subtitle={
                   visibleCategories.find((c) => c.id === selected.categoryId)?.name ?? null
@@ -164,6 +176,26 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
                   size="sm"
                 />
               </div>
+
+              {unplayableId === selected.id && alternative ? (
+                <div className="rounded-card border border-gold-500/30 bg-gold-500/10 px-4 py-3 text-sm text-gold-300">
+                  <p>
+                    Cette chaîne est probablement encodée en H.265, que ce navigateur ne décode
+                    pas. Le portail propose la même chaîne dans une version lisible.
+                  </p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => {
+                      setUnplayableId(null)
+                      setPicked(alternative)
+                    }}
+                  >
+                    Basculer sur {alternative.name}
+                  </Button>
+                </div>
+              ) : null}
 
               {settings.liveFormat === 'ts' ? (
                 <p className="rounded-card border border-gold-500/30 bg-gold-500/10 px-4 py-3 text-sm text-gold-300">

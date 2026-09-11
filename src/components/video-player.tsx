@@ -536,7 +536,9 @@ function describeMediaError(error: MediaError | null | undefined): string {
     case MediaError.MEDIA_ERR_NETWORK:
       return 'Flux injoignable : le portail a interrompu le transfert.'
     case MediaError.MEDIA_ERR_DECODE:
-      return 'Flux illisible : le navigateur n’a pas pu décoder cette vidéo.'
+      // Overwhelmingly H.265 on an FHD or 4K entry: the stream arrived and the
+      // decoder refused it, which is the one failure a codec explains.
+      return 'Flux illisible : le navigateur n’a pas pu décoder cette vidéo. Les variantes FHD et 4K sont souvent en H.265, que Chrome ne décode pas ici — Safari, lui, y arrive.'
     case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
       return 'Format non supporté par le navigateur — le portail renvoie peut-être du MPEG-TS.'
     default:
