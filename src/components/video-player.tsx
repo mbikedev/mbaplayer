@@ -46,14 +46,19 @@ export interface VideoPlayerProps {
 const CONTROLS_HIDE_DELAY_MS = 3000
 
 /**
- * How long the spinner may run before the source is declared dead.
+ * How long a source has to put a single frame on screen before it is declared
+ * dead.
  *
  * A stream that is merely slow announces itself: hls.js reports its errors and
  * the <video> element fires `error`. The case this covers is the silent one —
  * a stream id the panel accepts and then never feeds, which is what a group
- * banner in the channel list is. Nothing fails, so nothing was ever reported
- * and the spinner ran for ever. Generous enough for a congested portal on a
- * slow connection, short enough to stay an answer rather than a wait.
+ * banner in the channel list is. Nothing fails, so nothing is ever reported
+ * and the spinner runs for ever.
+ *
+ * One frame is the whole bar, deliberately. Judging on smooth playback would
+ * condemn every stream that merely arrives in fits, and a picture on screen is
+ * proof enough that the id is real. Generous enough for a congested portal on
+ * a slow connection, short enough to stay an answer rather than a wait.
  */
 const STALL_TIMEOUT_MS = 25_000
 const SEEK_STEP_SECONDS = 10
@@ -127,14 +132,17 @@ export function VideoPlayer({
   }, [])
 
   /**
-   * Frames arrived, so whatever the player concluded was wrong.
+   * A frame reached the screen, so the source is not dead.
    *
-   * The stall timer's verdict is provisional by nature: it fires on silence,
-   * and a stream held up behind a busy portal slot is silent right up until it
-   * plays. Without this the error overlay stayed on top of a running video.
+   * The bar has to be `loadeddata` and not `canplay`: a stream arriving in
+   * fits — which is what a congested portal sends — decodes a picture while
+   * `readyState` stays at HAVE_CURRENT_DATA, so `canplay` and `playing` never
+   * fire and the timer below sentenced a video the viewer could see.
+   *
+   * The verdict is provisional by nature; this withdraws it, and tells the
+   * caller so any offer it put up alongside comes down too.
    */
-  const reportRecovered = useCallback(() => {
-    setWaiting(false)
+  const withdrawStallVerdict = useCallback(() => {
     setStarted(true)
     setElementError(null)
     if (!reportedUnplayable.current) return
@@ -335,10 +343,14 @@ export function VideoPlayer({
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onWaiting={() => setWaiting(true)}
-        onPlaying={reportRecovered}
+        onLoadedData={withdrawStallVerdict}
+        onPlaying={() => {
+          setWaiting(false)
+          withdrawStallVerdict()
+        }}
         onCanPlay={() => {
           setWaiting(false)
-          setStarted(true)
+          withdrawStallVerdict()
         }}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
