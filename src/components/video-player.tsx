@@ -42,6 +42,18 @@ export interface VideoPlayerProps {
 }
 
 const CONTROLS_HIDE_DELAY_MS = 3000
+
+/**
+ * How long the spinner may run before the source is declared dead.
+ *
+ * A stream that is merely slow announces itself: hls.js reports its errors and
+ * the <video> element fires `error`. The case this covers is the silent one —
+ * a stream id the panel accepts and then never feeds, which is what a group
+ * banner in the channel list is. Nothing fails, so nothing was ever reported
+ * and the spinner ran for ever. Generous enough for a congested portal on a
+ * slow connection, short enough to stay an answer rather than a wait.
+ */
+const STALL_TIMEOUT_MS = 25_000
 const SEEK_STEP_SECONDS = 10
 
 export function VideoPlayer({
@@ -72,6 +84,8 @@ export function VideoPlayer({
   const [fullscreen, setFullscreen] = useState(false)
   const [idleHidden, setIdleHidden] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  /** Set once the source has produced a frame; the stall timer only guards the first one. */
+  const [started, setStarted] = useState(false)
 
   /**
    * Errors raised by the <video> element itself, which hls.js never sees.
@@ -102,6 +116,7 @@ export function VideoPlayer({
   const retry = useCallback(() => {
     setElementError(null)
     reportedUnplayable.current = false
+    setStarted(false)
     setWaiting(true)
     hls.retry()
     videoRef.current?.load()
@@ -123,6 +138,18 @@ export function VideoPlayer({
     const timer = setTimeout(() => setIdleHidden(true), CONTROLS_HIDE_DELAY_MS)
     return () => clearTimeout(timer)
   }, [playing, menuOpen])
+
+  // Give up on a source that never starts. Re-armed per source, and dropped
+  // for good once the first frame lands so mid-playback buffering is unaffected.
+  useEffect(() => {
+    if (!src || started || fatalError) return
+    const timer = setTimeout(() => {
+      reportUnplayable(
+        'Le flux ne démarre pas. La chaîne est peut-être hors service, ou cette entrée est un simple intitulé de groupe sans flux.',
+      )
+    }, STALL_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [src, started, fatalError, reportUnplayable])
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current
@@ -279,8 +306,14 @@ export function VideoPlayer({
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onWaiting={() => setWaiting(true)}
-        onPlaying={() => setWaiting(false)}
-        onCanPlay={() => setWaiting(false)}
+        onPlaying={() => {
+          setWaiting(false)
+          setStarted(true)
+        }}
+        onCanPlay={() => {
+          setWaiting(false)
+          setStarted(true)
+        }}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onVolumeChange={(event) => {

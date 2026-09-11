@@ -7,6 +7,7 @@ import { useAsync } from '@/hooks/use-async'
 import { useNow } from '@/hooks/use-now'
 import { formatTime, searchable } from '@/lib/format'
 import { isAdultCategoryName } from '@/lib/storage'
+import { firstPlayable } from '@/lib/channel-name'
 import { getLiveCategories, getLiveChannels, getShortEpg, streamUrl } from '@/lib/catalog'
 import type { LiveChannel } from '@/lib/xtream-types'
 import { FavoriteButton } from '../favorite-button'
@@ -61,7 +62,11 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
   const linked = initialChannelId
     ? (filtered.find((channel) => channel.id === initialChannelId) ?? null)
     : null
-  const selected = picked ?? linked ?? filtered[0] ?? null
+  // Not `filtered[0]`: providers head their live list with group banners that
+  // carry a stream id but no stream, so opening on the first entry meant
+  // opening on one of those. An explicit pick still wins — a viewer who clicks
+  // a banner gets the stall message rather than a silently ignored click.
+  const selected = picked ?? linked ?? firstPlayable(filtered)
 
   // Resolving a stream address is asynchronous: in playlist mode it comes from
   // the playlist itself, which may still be loading.
