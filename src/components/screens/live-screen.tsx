@@ -143,6 +143,7 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
                 key={selected.id}
                 src={src}
                 onUnplayable={() => setUnplayableId(selected.id)}
+                onRecovered={() => setUnplayableId(null)}
                 title={selected.name}
                 subtitle={
                   visibleCategories.find((c) => c.id === selected.categoryId)?.name ?? null

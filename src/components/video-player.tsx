@@ -35,6 +35,8 @@ export interface VideoPlayerProps {
    * a final error.
    */
   onUnplayable?: (message: string) => void
+  /** Called when a source the player had given up on starts after all. */
+  onRecovered?: () => void
   onProgress?: (position: number, duration: number) => void
   onEnded?: () => void
   onBack?: () => void
@@ -65,6 +67,7 @@ export function VideoPlayer({
   isHls,
   startPosition = 0,
   onUnplayable,
+  onRecovered,
   onProgress,
   onEnded,
   onBack,
@@ -109,8 +112,10 @@ export function VideoPlayer({
    * render, that timer would be cleared and re-armed for ever and never fire.
    */
   const latestOnUnplayable = useRef(onUnplayable)
+  const latestOnRecovered = useRef(onRecovered)
   useEffect(() => {
     latestOnUnplayable.current = onUnplayable
+    latestOnRecovered.current = onRecovered
   })
 
   const reportUnplayable = useCallback((message: string) => {
@@ -119,6 +124,22 @@ export function VideoPlayer({
     if (reportedUnplayable.current) return
     reportedUnplayable.current = true
     latestOnUnplayable.current?.(message)
+  }, [])
+
+  /**
+   * Frames arrived, so whatever the player concluded was wrong.
+   *
+   * The stall timer's verdict is provisional by nature: it fires on silence,
+   * and a stream held up behind a busy portal slot is silent right up until it
+   * plays. Without this the error overlay stayed on top of a running video.
+   */
+  const reportRecovered = useCallback(() => {
+    setWaiting(false)
+    setStarted(true)
+    setElementError(null)
+    if (!reportedUnplayable.current) return
+    reportedUnplayable.current = false
+    latestOnRecovered.current?.()
   }, [])
 
   const retry = useCallback(() => {
@@ -314,10 +335,7 @@ export function VideoPlayer({
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onWaiting={() => setWaiting(true)}
-        onPlaying={() => {
-          setWaiting(false)
-          setStarted(true)
-        }}
+        onPlaying={reportRecovered}
         onCanPlay={() => {
           setWaiting(false)
           setStarted(true)
