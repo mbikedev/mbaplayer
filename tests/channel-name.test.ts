@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { firstPlayable, isDecorativeName, logoFallback } from '@/lib/channel-name'
+import {
+  bannerLabel,
+  firstPlayable,
+  isDecorativeName,
+  logoFallback,
+} from '@/lib/channel-name'
 
 describe('isDecorativeName', () => {
   it('recognises the banners a live list is padded with', () => {
@@ -93,5 +98,31 @@ describe('logoFallback', () => {
   it('never returns an empty label', () => {
     expect(logoFallback('---', null)).toBe('—')
     expect(logoFallback('', null)).toBe('—')
+  })
+})
+
+describe('bannerLabel', () => {
+  it('keeps the words and drops the frame', () => {
+    expect(bannerLabel('-----▼|BR| VOD BRAZIL |BR|▼-----')).toBe('VOD BRAZIL')
+    expect(bannerLabel('---●★| VOD CRIANCAS |★●---')).toBe('VOD CRIANCAS')
+    expect(bannerLabel('▼--- |DE| VOD |DE| ---▼')).toBe('VOD')
+    expect(bannerLabel('=== FRANCE ===')).toBe('FRANCE')
+  })
+
+  it('does not split a label on a slash', () => {
+    expect(bannerLabel('▼--- |DE| VOD 4K UHD / 3D |DE| ---▼')).toBe('VOD 4K UHD / 3D')
+  })
+
+  it('prefers the label over the shorter country tag', () => {
+    expect(bannerLabel('-----▼|ES| VOD ESPANOL |ES|▼-----')).toBe('VOD ESPANOL')
+    expect(bannerLabel('---●★| ZULETZT HINZUGEFÜGT |★●---')).toBe('ZULETZT HINZUGEFÜGT')
+  })
+
+  it('collapses the whitespace the frame leaves behind', () => {
+    expect(bannerLabel('▼●★ ---  |FR|  M6 PLAY  |FR| --- ★●▼')).toBe('M6 PLAY')
+  })
+
+  it('returns the name when there is nothing but frame', () => {
+    expect(bannerLabel('-----')).toBe('-----')
   })
 })

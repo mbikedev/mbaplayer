@@ -14,6 +14,23 @@ import { PORTAL_USER_AGENT } from '@/lib/server/user-agent'
 
 const REQUEST_TIMEOUT_MS = 30_000
 
+/**
+ * Closes the upstream connection as soon as the player stops reading.
+ *
+ * A live segment or an open MPEG-TS stream is abandoned constantly — every
+ * channel switch, every reload, every closed tab. Without the client's own
+ * signal the fetch ran to the timeout above regardless, holding the portal
+ * connection open for up to thirty seconds after nobody was listening.
+ *
+ * That is invisible on a generous account and fatal on a strict one: this
+ * subscription allows `max_connections: 1`, so the abandoned stream kept the
+ * single slot and the channel being switched *to* was refused until the old
+ * one lapsed.
+ */
+function abortWith(clientSignal: AbortSignal): AbortSignal {
+  return AbortSignal.any([clientSignal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+}
+
 /** Headers worth forwarding from the upstream response to the player. */
 const PASSTHROUGH_RESPONSE_HEADERS = [
   'content-type',
@@ -53,11 +70,14 @@ async function handle(request: Request, method: 'GET' | 'HEAD') {
     upstream = await fetch(targetUrl, {
       method,
       headers: upstreamHeaders,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: abortWith(request.signal),
       cache: 'no-store',
       redirect: 'follow',
     })
   } catch (error) {
+    // The player moved on. Nothing is listening, so there is nothing to report.
+    if (request.signal.aborted) return new Response(null, { status: 499 })
+
     const timedOut = error instanceof Error && error.name === 'TimeoutError'
     return NextResponse.json(
       { error: timedOut ? 'Le flux n’a pas répondu à temps.' : 'Impossible de joindre le flux.' },

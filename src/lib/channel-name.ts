@@ -18,8 +18,15 @@
  * Characters used to build those banners. Letters and digits are deliberately
  * absent: a banner is recognised by its frame, not by the words inside it,
  * which are ordinary category names.
+ *
+ * `/` and `\` are deliberately absent too. They never frame a banner, and
+ * counting them would split `VOD 4K UHD / 3D` in two when the label is cut out
+ * of its frame below.
  */
-const ORNAMENT = String.raw`\-=_~*+#.:;!¡•·●○◦★☆✦✧▼▲▽△◆◇■□<>«»|/\\`
+const ORNAMENT = String.raw`\-=_~*+#.:;!¡•·●○◦★☆✦✧▼▲▽△◆◇■□<>«»|`
+
+/** Everything but the words, used to cut a banner apart. */
+const ORNAMENT_RUN = new RegExp(`[${ORNAMENT}]+`, 'g')
 
 /**
  * Three is the shortest run that reads as a rule rather than as punctuation:
@@ -85,4 +92,38 @@ export function logoFallback(name: string, num: number | null | undefined): stri
     .join('')
 
   return initials || '—'
+}
+
+/**
+ * The words inside a banner, without its frame.
+ *
+ *     -----▼|BR| VOD BRAZIL |BR|▼-----   ->  VOD BRAZIL
+ *     ---●★| VOD CRIANCAS |★●---         ->  VOD CRIANCAS
+ *     ▼--- |DE| VOD 4K UHD / 3D |DE| ---▼ ->  VOD 4K UHD / 3D
+ *
+ * The frame is not a fixed shape — the pipes sit around the country tag in one
+ * and around the label itself in the next — so rather than peel layers off the
+ * ends, this cuts the name at every run of ornament and keeps the piece
+ * carrying the most letters and digits. Country tags lose to the label because
+ * they are shorter, which is the whole reason they are tags.
+ *
+ * Falls back to the name as given when nothing survives the cut.
+ */
+export function bannerLabel(name: string): string {
+  const pieces = name
+    .split(ORNAMENT_RUN)
+    .map((piece) => piece.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+
+  let best = ''
+  let bestWeight = 0
+  for (const piece of pieces) {
+    const weight = (piece.match(/[\p{L}\p{N}]/gu) ?? []).length
+    if (weight > bestWeight) {
+      best = piece
+      bestWeight = weight
+    }
+  }
+
+  return best || name.trim()
 }

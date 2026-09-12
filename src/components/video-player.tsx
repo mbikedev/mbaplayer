@@ -35,6 +35,8 @@ export interface VideoPlayerProps {
    * a final error.
    */
   onUnplayable?: (message: string) => void
+  /** Called when a source the player had given up on starts after all. */
+  onRecovered?: () => void
   onProgress?: (position: number, duration: number) => void
   onEnded?: () => void
   onBack?: () => void
@@ -44,14 +46,19 @@ export interface VideoPlayerProps {
 const CONTROLS_HIDE_DELAY_MS = 3000
 
 /**
- * How long the spinner may run before the source is declared dead.
+ * How long a source has to put a single frame on screen before it is declared
+ * dead.
  *
  * A stream that is merely slow announces itself: hls.js reports its errors and
  * the <video> element fires `error`. The case this covers is the silent one —
  * a stream id the panel accepts and then never feeds, which is what a group
- * banner in the channel list is. Nothing fails, so nothing was ever reported
- * and the spinner ran for ever. Generous enough for a congested portal on a
- * slow connection, short enough to stay an answer rather than a wait.
+ * banner in the channel list is. Nothing fails, so nothing is ever reported
+ * and the spinner runs for ever.
+ *
+ * One frame is the whole bar, deliberately. Judging on smooth playback would
+ * condemn every stream that merely arrives in fits, and a picture on screen is
+ * proof enough that the id is real. Generous enough for a congested portal on
+ * a slow connection, short enough to stay an answer rather than a wait.
  */
 const STALL_TIMEOUT_MS = 25_000
 const SEEK_STEP_SECONDS = 10
@@ -65,6 +72,7 @@ export function VideoPlayer({
   isHls,
   startPosition = 0,
   onUnplayable,
+  onRecovered,
   onProgress,
   onEnded,
   onBack,
@@ -102,16 +110,45 @@ export function VideoPlayer({
 
   const fatalError = hls.fatalError ?? elementError
 
-  const reportUnplayable = useCallback(
-    (message: string) => {
-      setElementError(message)
-      setWaiting(false)
-      if (reportedUnplayable.current) return
-      reportedUnplayable.current = true
-      onUnplayable?.(message)
-    },
-    [onUnplayable],
-  )
+  /**
+   * Callers pass an inline arrow, so `onUnplayable` is a new function on every
+   * render of theirs. Reading it through a ref keeps `reportUnplayable` stable,
+   * which matters because the stall timer below depends on it: rebuilt each
+   * render, that timer would be cleared and re-armed for ever and never fire.
+   */
+  const latestOnUnplayable = useRef(onUnplayable)
+  const latestOnRecovered = useRef(onRecovered)
+  useEffect(() => {
+    latestOnUnplayable.current = onUnplayable
+    latestOnRecovered.current = onRecovered
+  })
+
+  const reportUnplayable = useCallback((message: string) => {
+    setElementError(message)
+    setWaiting(false)
+    if (reportedUnplayable.current) return
+    reportedUnplayable.current = true
+    latestOnUnplayable.current?.(message)
+  }, [])
+
+  /**
+   * A frame reached the screen, so the source is not dead.
+   *
+   * The bar has to be `loadeddata` and not `canplay`: a stream arriving in
+   * fits — which is what a congested portal sends — decodes a picture while
+   * `readyState` stays at HAVE_CURRENT_DATA, so `canplay` and `playing` never
+   * fire and the timer below sentenced a video the viewer could see.
+   *
+   * The verdict is provisional by nature; this withdraws it, and tells the
+   * caller so any offer it put up alongside comes down too.
+   */
+  const withdrawStallVerdict = useCallback(() => {
+    setStarted(true)
+    setElementError(null)
+    if (!reportedUnplayable.current) return
+    reportedUnplayable.current = false
+    latestOnRecovered.current?.()
+  }, [])
 
   const retry = useCallback(() => {
     setElementError(null)
@@ -306,13 +343,14 @@ export function VideoPlayer({
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onWaiting={() => setWaiting(true)}
+        onLoadedData={withdrawStallVerdict}
         onPlaying={() => {
           setWaiting(false)
-          setStarted(true)
+          withdrawStallVerdict()
         }}
         onCanPlay={() => {
           setWaiting(false)
-          setStarted(true)
+          withdrawStallVerdict()
         }}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
@@ -536,7 +574,9 @@ function describeMediaError(error: MediaError | null | undefined): string {
     case MediaError.MEDIA_ERR_NETWORK:
       return 'Flux injoignable : le portail a interrompu le transfert.'
     case MediaError.MEDIA_ERR_DECODE:
-      return 'Flux illisible : le navigateur n’a pas pu décoder cette vidéo.'
+      // Overwhelmingly H.265 on an FHD or 4K entry: the stream arrived and the
+      // decoder refused it, which is the one failure a codec explains.
+      return 'Flux illisible : le navigateur n’a pas pu décoder cette vidéo. Les variantes FHD et 4K sont souvent en H.265, que Chrome ne décode pas ici — Safari, lui, y arrive.'
     case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
       return 'Format non supporté par le navigateur — le portail renvoie peut-être du MPEG-TS.'
     default:

@@ -7,7 +7,8 @@ import { useAsync } from '@/hooks/use-async'
 import { useNow } from '@/hooks/use-now'
 import { formatTime, searchable } from '@/lib/format'
 import { isAdultCategoryName } from '@/lib/storage'
-import { firstPlayable, logoFallback } from '@/lib/channel-name'
+import { bannerLabel, firstPlayable, isDecorativeName, logoFallback } from '@/lib/channel-name'
+import { decodableAlternative } from '@/lib/channel-variants'
 import { getLiveCategories, getLiveChannels, getShortEpg, streamUrl } from '@/lib/catalog'
 import type { LiveChannel } from '@/lib/xtream-types'
 import { FavoriteButton } from '../favorite-button'
@@ -24,6 +25,8 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
   const [activeCategory, setActiveCategory] = useState('all')
   const [query, setQuery] = useState('')
   const [picked, setPicked] = useState<LiveChannel | null>(null)
+  /** The channel the player last refused, so the offer only shows for that one. */
+  const [unplayableId, setUnplayableId] = useState<string | null>(null)
 
   const categories = useAsync(() => getLiveCategories(credentials!), [credentials], {
     enabled: Boolean(credentials),
@@ -59,6 +62,14 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
   // player from ever being empty, and is derived rather than set in an effect.
   // An explicit pick always wins, so arriving from the guide does not pin the
   // selection once the viewer starts browsing.
+  // Banners are listed but are not channels, so they must not be counted as
+  // ones: a subscription reads as 9 856 channels when a few hundred of those
+  // entries are headings.
+  const channelCount = useMemo(
+    () => filtered.reduce((total, channel) => (isDecorativeName(channel.name) ? total : total + 1), 0),
+    [filtered],
+  )
+
   const linked = initialChannelId
     ? (filtered.find((channel) => channel.id === initialChannelId) ?? null)
     : null
@@ -67,6 +78,14 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
   // opening on one of those. An explicit pick still wins — a viewer who clicks
   // a banner gets the stall message rather than a silently ignored click.
   const selected = picked ?? linked ?? firstPlayable(filtered)
+
+  // Offered when the player refuses the current entry: resellers publish the
+  // same channel at several qualities and the top tiers are routinely H.265,
+  // so the answer is usually one row away in the list the viewer already has.
+  const alternative = useMemo(
+    () => (selected ? decodableAlternative(selected, channels.data ?? []) : null),
+    [selected, channels.data],
+  )
 
   // Resolving a stream address is asynchronous: in playlist mode it comes from
   // the playlist itself, which may still be loading.
@@ -89,7 +108,7 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
           title="TV en direct"
           subtitle={
             channels.data
-              ? `${filtered.length.toLocaleString('fr-FR')} chaîne${filtered.length > 1 ? 's' : ''}`
+              ? `${channelCount.toLocaleString('fr-FR')} chaîne${channelCount > 1 ? 's' : ''}`
               : undefined
           }
           actions={
@@ -123,6 +142,8 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
               <VideoPlayer
                 key={selected.id}
                 src={src}
+                onUnplayable={() => setUnplayableId(selected.id)}
+                onRecovered={() => setUnplayableId(null)}
                 title={selected.name}
                 subtitle={
                   visibleCategories.find((c) => c.id === selected.categoryId)?.name ?? null
@@ -156,6 +177,26 @@ export function LiveScreen({ initialChannelId }: { initialChannelId: string | nu
                   size="sm"
                 />
               </div>
+
+              {unplayableId === selected.id && alternative ? (
+                <div className="rounded-card border border-gold-500/30 bg-gold-500/10 px-4 py-3 text-sm text-gold-300">
+                  <p>
+                    Cette chaîne est probablement encodée en H.265, que ce navigateur ne décode
+                    pas. Le portail propose la même chaîne dans une version lisible.
+                  </p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => {
+                      setUnplayableId(null)
+                      setPicked(alternative)
+                    }}
+                  >
+                    Basculer sur {alternative.name}
+                  </Button>
+                </div>
+              ) : null}
 
               {settings.liveFormat === 'ts' ? (
                 <p className="rounded-card border border-gold-500/30 bg-gold-500/10 px-4 py-3 text-sm text-gold-300">
@@ -265,24 +306,34 @@ function ChannelList({
 
   return (
     <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto rounded-card border border-ink-800 bg-ink-900 p-1.5">
-      {shown.map((channel) => (
-        <li key={channel.id}>
-          <button
-            type="button"
-            onClick={() => onSelect(channel)}
-            aria-current={selectedId === channel.id ? 'true' : undefined}
-            className={cx(
-              'flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors',
-              selectedId === channel.id
-                ? 'bg-gold-500/15 text-gold-300'
-                : 'text-ink-200 hover:bg-ink-800',
-            )}
-          >
-            <ChannelLogo channel={channel} />
-            <span className="min-w-0 flex-1 truncate text-sm">{channel.name}</span>
-          </button>
-        </li>
-      ))}
+      {shown.map((channel) =>
+        // A banner is what the reseller meant as a group heading, so it is
+        // rendered as one: readable, and not a button that leads nowhere.
+        isDecorativeName(channel.name) ? (
+          <li key={channel.id} className="px-2.5 pb-0.5 pt-4 first:pt-1">
+            <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-ink-500">
+              {bannerLabel(channel.name)}
+            </p>
+          </li>
+        ) : (
+          <li key={channel.id}>
+            <button
+              type="button"
+              onClick={() => onSelect(channel)}
+              aria-current={selectedId === channel.id ? 'true' : undefined}
+              className={cx(
+                'flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors',
+                selectedId === channel.id
+                  ? 'bg-gold-500/15 text-gold-300'
+                  : 'text-ink-200 hover:bg-ink-800',
+              )}
+            >
+              <ChannelLogo channel={channel} />
+              <span className="min-w-0 flex-1 truncate text-sm">{channel.name}</span>
+            </button>
+          </li>
+        ),
+      )}
 
       {hasMore ? <LoadMoreSentinel ref={sentinelRef} as="li" /> : null}
     </ul>
