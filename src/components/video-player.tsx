@@ -35,6 +35,8 @@ export interface VideoPlayerProps {
    * a final error.
    */
   onUnplayable?: (message: string) => void
+  /** How long the source has to show a first frame. Defaults to the live budget. */
+  stallTimeoutMs?: number
   /** Called when a source the player had given up on starts after all. */
   onRecovered?: () => void
   onProgress?: (position: number, duration: number) => void
@@ -61,6 +63,17 @@ const CONTROLS_HIDE_DELAY_MS = 3000
  * a slow connection, short enough to stay an answer rather than a wait.
  */
 const STALL_TIMEOUT_MS = 25_000
+
+/**
+ * Catch-up needs far longer than live.
+ *
+ * A live channel is already running: the portal only has to hand over its
+ * current playlist. A recording is cut on demand — the edge locates the
+ * archive, assembles the window and only then answers. Measured at 25 seconds
+ * flat on a real portal, which is exactly the live budget, so the recording was
+ * abandoned at the instant it became available.
+ */
+export const ARCHIVE_STALL_TIMEOUT_MS = 90_000
 const SEEK_STEP_SECONDS = 10
 
 export function VideoPlayer({
@@ -73,6 +86,7 @@ export function VideoPlayer({
   startPosition = 0,
   onUnplayable,
   onRecovered,
+  stallTimeoutMs = STALL_TIMEOUT_MS,
   onProgress,
   onEnded,
   onBack,
@@ -184,9 +198,9 @@ export function VideoPlayer({
       reportUnplayable(
         'Le flux ne démarre pas. La chaîne est peut-être hors service, ou cette entrée est un simple intitulé de groupe sans flux.',
       )
-    }, STALL_TIMEOUT_MS)
+    }, stallTimeoutMs)
     return () => clearTimeout(timer)
-  }, [src, started, fatalError, reportUnplayable])
+  }, [src, started, fatalError, reportUnplayable, stallTimeoutMs])
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current

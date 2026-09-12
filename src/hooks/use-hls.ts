@@ -124,10 +124,13 @@ export function useHls(
         lowLatencyMode: false,
         backBufferLength: 30,
         maxBufferLength: 30,
-        manifestLoadingTimeOut: 20_000,
-        // Deliberately low. A playlist that does not load is usually the wrong
-        // URL rather than a blip, and every internal retry is time the viewer
-        // spends watching a spinner before an alternative can be tried.
+        // A live playlist comes back in milliseconds, but a catch-up recording
+        // is cut on demand: a real portal was measured taking 25 seconds flat
+        // to assemble one. Twenty seconds guaranteed failure on every archive.
+        manifestLoadingTimeOut: 45_000,
+        // The retry count stays at one, which is what actually protects the
+        // viewer from a long wait: a wrong URL fails on its merits rather than
+        // being attempted repeatedly.
         manifestLoadingMaxRetry: 1,
         fragLoadingTimeOut: 30_000,
         fragLoadingMaxRetry: 4,
