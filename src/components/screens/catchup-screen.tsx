@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useSession } from '@/context/session'
 import { useAsync } from '@/hooks/use-async'
 import { formatTime } from '@/lib/format'
+import { redactUrl } from '@/lib/redact'
 import { VIEWER_CLOCK } from '@/lib/catchup'
 import { catchupStreamUrls, getPortalClock } from '@/lib/catalog'
-import { VideoPlayer } from '../video-player'
+import { ARCHIVE_STALL_TIMEOUT_MS, VideoPlayer } from '../video-player'
 import { EmptyState, LinkButton, Spinner } from '../ui'
 
 interface CatchupScreenProps {
@@ -59,6 +60,17 @@ export function CatchupScreen({
     { enabled: Boolean(credentials && channelId && start && durationMinutes) },
   )
   const sources = useMemo(() => candidates.data ?? [], [candidates.data])
+
+  // A portal that serves nothing useful is indistinguishable, from the outside,
+  // from an address this app built wrong — and only one of those is fixable
+  // here. Showing the address settles it without a browser inspector.
+  const attemptedUrl = useMemo(() => {
+    const source = sources[candidateIndex]
+    if (!source) return null
+    const secrets =
+      credentials?.source === 'xtream' ? [credentials.username, credentials.password] : []
+    return redactUrl(source, secrets)
+  }, [sources, candidateIndex, credentials])
 
   const handleUnplayable = useCallback(() => {
     setCandidateIndex((index) => (index + 1 < sources.length ? index + 1 : index))
@@ -120,7 +132,8 @@ export function CatchupScreen({
             subtitle={subtitle}
             // A recording is a finite stream, so it seeks like a film rather
             // than behaving as live.
-            isHls={isHlsCandidate(candidateIndex)}
+            isHls={isHlsCandidate(sources[candidateIndex])}
+            stallTimeoutMs={ARCHIVE_STALL_TIMEOUT_MS}
             onUnplayable={handleUnplayable}
             onBack={goBack}
             className="sm:rounded-card"
@@ -134,6 +147,17 @@ export function CatchupScreen({
           dépendent entièrement de celui-ci.
         </p>
 
+        {attemptedUrl ? (
+          <div className="rounded-card border border-ink-800 bg-ink-900 px-4 py-3">
+            <p className="text-xs uppercase tracking-wider text-ink-500">
+              Adresse demandée{sources.length > 1 ? ` — essai ${candidateIndex + 1}/${sources.length}` : ''}
+            </p>
+            <p className="mt-1 break-all font-mono text-xs leading-relaxed text-ink-400">
+              {attemptedUrl}
+            </p>
+          </div>
+        ) : null}
+
         {candidateIndex > 0 ? (
           <p className="rounded-card border border-gold-500/30 bg-gold-500/10 px-4 py-3 text-sm text-gold-300">
             La première adresse de rattrapage n’a rien renvoyé ; une autre forme d’URL est en cours
@@ -146,9 +170,12 @@ export function CatchupScreen({
 }
 
 /**
- * Only the first candidate is an HLS playlist; the legacy `timeshift.php`
- * fallback is served as a progressive stream.
+ * Whether an address should be handed to the HLS pipeline.
+ *
+ * This used to be decided by the candidate's rank in the list, which assumed
+ * the first form is always a playlist and the rest never are. The address says
+ * it plainly, and a portal is free to serve either shape at either URL.
  */
-function isHlsCandidate(index: number): boolean {
-  return index === 0
+function isHlsCandidate(url: string | undefined): boolean {
+  return Boolean(url && /\.m3u8?(\?|$)/i.test(url))
 }

@@ -12,7 +12,14 @@ import { PORTAL_USER_AGENT } from '@/lib/server/user-agent'
  * point back at this route or the player would go direct and fail again.
  */
 
-const REQUEST_TIMEOUT_MS = 30_000
+/**
+ * Long enough for a portal to cut a recording.
+ *
+ * Live playlists and segments answer in milliseconds; an archive window is
+ * assembled on demand, and a real portal was measured taking 25 seconds. The
+ * old 30-second ceiling left almost no margin above that.
+ */
+const REQUEST_TIMEOUT_MS = 60_000
 
 /**
  * Closes the upstream connection as soon as the player stops reading.
