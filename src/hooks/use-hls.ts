@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type Hls from 'hls.js'
 import type { ErrorData, Level } from 'hls.js'
+import { prefersNativeHls } from '@/lib/hls-support'
 
 export interface QualityLevel {
   index: number
@@ -49,8 +50,9 @@ function levelLabel(level: Level): string {
  * Attaches a source to a <video>, using hls.js for playlists and the element's
  * own loader for progressive files.
  *
- * hls.js is imported lazily: it is ~200 KB and pointless on Safari and iOS,
- * where HLS plays natively and Media Source Extensions are unavailable.
+ * hls.js is imported lazily: it is ~200 KB and never loaded on Apple's WebKit,
+ * where the element's own HLS loader reaches the system decoder and so plays
+ * strictly more than Media Source Extensions would.
  */
 export function useHls(
   videoRef: React.RefObject<HTMLVideoElement | null>,
@@ -94,14 +96,21 @@ export function useHls(
         return
       }
 
-      // Safari and iOS play HLS natively and do not expose MSE, so hls.js is
-      // both unnecessary and unusable there.
-      const nativeHls = video.canPlayType('application/vnd.apple.mpegurl')
+      // WebKit gets the playlist directly. Desktop Safari does expose MSE, so
+      // hls.js would run there — but it would run through MSE, which refuses
+      // codecs the system decoder handles. Choosing hls.js on Apple hardware
+      // means losing channels for the sake of a quality menu.
+      const canPlayNatively = video.canPlayType('application/vnd.apple.mpegurl')
+      if (prefersNativeHls(canPlayNatively, navigator.userAgent)) {
+        video.src = src!
+        return
+      }
+
       const { default: HlsClass } = await import('hls.js')
       if (cancelled) return
 
       if (!HlsClass.isSupported()) {
-        if (nativeHls) {
+        if (canPlayNatively) {
           video.src = src!
         } else {
           setFatalError("Ce navigateur ne sait pas lire les flux HLS.")
@@ -157,7 +166,26 @@ export function useHls(
       })
 
       hls.on(HlsClass.Events.ERROR, (_event, data: ErrorData) => {
-        if (cancelled || !data.fatal) return
+        if (cancelled) return
+
+        // MSE rejecting a track is reported as non-fatal, and hls.js carries
+        // on as if nothing happened: the video buffer fills, the audio buffer
+        // stays empty, readyState never rises and the viewer watches a spinner
+        // with no explanation. It is fatal in every sense that matters here.
+        if (
+          data.details === HlsClass.ErrorDetails.BUFFER_ADD_CODEC_ERROR ||
+          data.details === HlsClass.ErrorDetails.BUFFER_INCOMPATIBLE_CODECS_ERROR
+        ) {
+          const message =
+            'Ce navigateur refuse une piste de ce flux : son codec ne passe pas par Media Source Extensions. C’est courant pour l’audio AC-3 ou MPEG-1 Layer II et pour la vidéo H.265. Safari, qui utilise le décodeur du système, lit ces chaînes.'
+          setFatalError(message)
+          hls.destroy()
+          hlsRef.current = null
+          onUnplayableRef.current?.(message)
+          return
+        }
+
+        if (!data.fatal) return
 
         // A 4xx on the playlist itself is the portal answering definitively:
         // the URL is wrong or the account may not have it, and no amount of
